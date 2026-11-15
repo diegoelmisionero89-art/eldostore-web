@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="ELDOSTORE - Tecnología, celulares, Smart TV, electrodomésticos, herramientas y productos para el hogar. Venta online en Eldorado, Misiones.">
+<title>ELDOSTORE | Electrónica • Calidad • Confianza • Variedad</title>
+<meta name="theme-color" content="#080808">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23080808'/%3E%3Ctext x='50' y='68' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='58' fill='%23d4aa4b' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E">
+<link rel="preload" as="image" href="img/banner-tecnologia.jpg" imagesrcset="img/banner-tecnologia-944.jpg 944w, img/banner-tecnologia.jpg 1888w" imagesizes="(max-width: 650px) 100vw, 62vw">
+<link rel="stylesheet" href="css/tienda.css">
+</head>
+
+<body>
+<div class="ship-strip">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v9H3zM14 9h4l3 3v3h-7z"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/></svg>
+  Envío gratis desde $12.000 dentro de Eldorado
+</div>
+
+<header class="site-header" id="inicio">
+  <div class="hdr">
+    <button class="menu-btn" id="btnMenu" type="button" aria-label="Abrir categorías" aria-expanded="false" aria-controls="menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <a class="brand" href="#inicio" aria-label="ELDOSTORE, inicio">
+      <span class="brand-bolt" aria-hidden="true">⚡</span>
+      <span class="brand-txt"><strong>ELD<span>⚡</span>STORE</strong><small>ACCESORIOS Y ELECTRÓNICA</small></span>
+    </a>
+    <label class="search search-desk" for="qDesk">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <span class="sr">Buscar productos</span>
+      <input id="qDesk" type="search" placeholder="Buscar producto o modelo…" autocomplete="off" data-q>
+    </label>
+    <button class="cart-btn" id="btnCart" type="button" aria-controls="cart" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.1"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>
+      <span class="cart-count" id="cartCount">0</span>
+      <span class="cart-total" id="cartTotal">$ 0</span>
+      <span class="sr" id="cartLabel">Abrir carrito</span>
+    </button>
+  </div>
+  <div class="hdr-search-mob">
+    <label class="search" for="qMob">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <span class="sr">Buscar productos</span>
+      <input id="qMob" type="search" placeholder="Buscar producto o modelo…" autocomplete="off" data-q>
+    </label>
+  </div>
+</header>
+
+<main>
+  <section class="promo-hero" id="promoHero" aria-label="Promociones" hidden></section>
+  <section class="hero" aria-labelledby="heroTitle">
+    <img class="hero-img" id="heroImg" src="img/banner-tecnologia.jpg" srcset="img/banner-tecnologia-944.jpg 944w, img/banner-tecnologia.jpg 1888w" sizes="(max-width: 650px) 100vw, 62vw" width="1888" height="612" fetchpriority="high" decoding="async"
+         alt="Smart TV, smartphones, auriculares inalámbricos, parlantes Bluetooth, joysticks y accesorios tecnológicos sobre un fondo oscuro con luces doradas">
+    <div class="hero-copy">
+      <h1 id="heroTitle"><span>Tecnología</span><br>que te acompaña</h1>
+      <p>Smartphones · Auriculares · TV · Parlantes<br>Accesorios y mucho más</p>
+      <a class="cta" href="#productos">Ver todos los productos <span aria-hidden="true">➜</span></a>
+      <ul class="benefits">
+        <li><span aria-hidden="true">⚡</span>Envío gratis<br>desde $12.000</li>
+        <li><span aria-hidden="true">♢</span>Compra segura<br>y confiable</li>
+        <li><span aria-hidden="true">⚡</span>Asesoramiento<br>por WhatsApp</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <nav class="cats" id="cats" aria-label="Categorías"></nav>
+
+    <section class="flash" id="flash" aria-labelledby="flashTitulo" hidden>
+      <div class="flash-hd">
+        <h2><span aria-hidden="true">⚡</span> <span id="flashTitulo">Ofertas flash</span> <span class="flash-cant" id="flashCant"></span></h2>
+        <p class="flash-reloj-box">Termina en <span class="flash-reloj" id="flashReloj" role="timer"></span></p>
+      </div>
+      <div class="flash-car">
+        <button type="button" class="flash-nav prev" data-flash="-1" aria-label="Ver ofertas anteriores" hidden>‹</button>
+        <div class="flash-track" id="flashTrack" tabindex="0" aria-label="Productos en oferta flash"></div>
+        <button type="button" class="flash-nav next" data-flash="1" aria-label="Ver más ofertas" hidden>›</button>
+      </div>
+    </section>
+
+    <div class="section-title" id="productos">
+      <h2 id="catTitle">Productos destacados</h2>
+      <span class="count" id="count" aria-live="polite"></span>
+      <label class="sr" for="orden">Ordenar productos</label>
+      <select class="sort" id="orden">
+        <option value="dest">Destacados</option>
+        <option value="menor">Menor precio</option>
+        <option value="mayor">Mayor precio</option>
+        <option value="az">Nombre A–Z</option>
+      </select>
+    </div>
+    <p class="notice" id="notice" hidden></p>
+    <div class="products" id="catalogo-productos" aria-busy="true">
+      <div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>
+    </div>
+  </div>
+
+  <section class="info" id="envios" aria-labelledby="envTitle">
+    <div class="wrap">
+      <h2 id="envTitle">Envíos y cómo comprar</h2>
+      <ol class="steps">
+        <li><b>Armá tu carrito</b><span>Elegí productos y cantidades.</span></li>
+        <li><b>Enviá el pedido por WhatsApp</b><span>El mensaje se arma solo con el detalle y el total estimado.</span></li>
+        <li><b>Te confirmamos</b><span>Revisamos disponibilidad, precio final, pago y entrega.</span></li>
+      </ol>
+      <div class="rates">
+        <div class="rate"><small>Km 1 a Km 5</small><strong>$1.500</strong></div>
+        <div class="rate"><small>Km 6 a Km 11</small><strong>$2.000</strong></div>
+        <div class="rate"><small>Km 12 a Km 18</small><strong>$3.000</strong></div>
+      </div>
+      <p class="free-ship"><b>Envío gratis:</b> a partir de $12.000 de compra dentro de Eldorado.</p>
+      <p class="fine">Para otras localidades, consultá el valor antes de realizar tu pedido. Al enviar tu ubicación, verificá que sea la correcta para evitar demoras en la entrega.</p>
+    </div>
+  </section>
+
+  <section class="info info-alt" id="nosotros" aria-labelledby="nosTitle">
+    <div class="wrap about">
+      <div>
+        <h2 id="nosTitle">Sobre ELDOSTORE</h2>
+        <p>ELDOSTORE es un emprendimiento de venta online ubicado en Eldorado, Misiones, Argentina. Ofrecemos productos de distintas categorías, desde tecnología y celulares hasta artículos para el hogar, herramientas, accesorios y mucho más.</p>
+        <p>Nuestro objetivo es acercarte productos de interés de una manera práctica, con atención personalizada y comunicación directa.</p>
+      </div>
+      <div class="contact" id="contacto">
+        <h2>Contacto</h2>
+        <p>Estamos para responder tus consultas, ayudarte a encontrar lo que necesitás y coordinar tu compra.</p>
+        <div class="contact-links" id="contactLinks">
+          <a class="pill" href="https://www.instagram.com/eldostore_/" target="_blank" rel="noopener noreferrer">Instagram @eldostore_</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p><strong>ELDOSTORE</strong> • Electrónica • Calidad • Confianza • Variedad</p>
+    <p>Eldorado, Misiones, Argentina · Instagram: <a href="https://www.instagram.com/eldostore_/" target="_blank" rel="noopener noreferrer">@eldostore_</a></p>
+    <p class="fine">Precios sujetos a disponibilidad y actualización.</p>
+    <p><a class="admin-link" href="admin.html">Acceso administrativo</a></p>
+  </div>
+</footer>
+
+<!-- Menú de categorías (computadora) -->
+<div class="scrim" id="scrim"></div>
+<nav class="drawer" id="menu" aria-label="Categorías" aria-hidden="true" inert>
+  <div class="pan-hd">
+    <h2>Categorías</h2>
+    <button class="x-btn" type="button" data-close aria-label="Cerrar categorías">✕</button>
+  </div>
+  <ul class="cat-list" id="catList"></ul>
+  <div class="drawer-ft">
+    <a href="#envios" data-close>Envíos y cómo comprar</a>
+    <a href="#contacto" data-close>Contacto</a>
+  </div>
+</nav>
+
+<!-- Carrito: hoja inferior en celular, panel lateral en computadora -->
+<aside class="cart" id="cart" aria-label="Carrito" aria-hidden="true" inert>
+  <div class="grab" aria-hidden="true"></div>
+  <div class="pan-hd">
+    <h2>Tu carrito <span id="cartHdCount"></span></h2>
+    <button class="x-btn" type="button" data-close aria-label="Cerrar carrito">✕</button>
+  </div>
+  <div class="cart-body">
+    <div class="cart-empty" id="cartEmpty">
+      <p>Tu carrito está vacío.</p>
+      <button class="cta" type="button" data-close>Ver productos</button>
+    </div>
+    <div id="cartFull" hidden>
+      <ul class="items" id="items"></ul>
+      <div class="ship" id="ship">
+        <span id="shipTxt"></span>
+        <div class="bar" aria-hidden="true"><i id="shipBar"></i></div>
+        <small>El envío no está incluido en el total: depende de tu ubicación.</small>
+      </div>
+      <form class="fields" id="orderForm" autocomplete="on">
+        <label for="fNombre">Nombre (opcional)<input id="fNombre" name="nombre" maxlength="60" autocomplete="name"></label>
+        <label for="fZona">Zona o localidad (opcional)<input id="fZona" name="zona" maxlength="80" placeholder="Ej.: Km 9, Eldorado"></label>
+      </form>
+      <details class="preview">
+        <summary>Ver el mensaje que se va a enviar</summary>
+        <pre id="msgPreview"></pre>
+      </details>
+      <div class="row-ghost">
+        <button class="ghost" type="button" id="btnCopy">Copiar mensaje</button>
+        <button class="ghost" type="button" id="btnClear">Vaciar carrito</button>
+      </div>
+    </div>
+  </div>
+  <div class="cart-ft" id="cartFt" hidden>
+    <div class="tot"><span>Total estimado (sin envío)</span><strong id="sumTotal">$ 0</strong></div>
+    <a class="send" id="btnSend" href="#" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+      Enviar pedido por WhatsApp
+    </a>
+    <p class="cfg" id="cfgWa" hidden>El número de WhatsApp de la tienda todavía no está configurado.</p>
+    <p class="status" id="sendStatus" role="status" hidden></p>
+    <p class="legal">Al enviar el mensaje, tu pedido queda pendiente de revisión. ELDOSTORE te confirma disponibilidad, precio final, forma de pago y entrega por WhatsApp.</p>
+  </div>
+</aside>
+
+<a class="wa-fab" id="waFab" href="#" target="_blank" rel="noopener noreferrer" aria-label="Escribir a ELDOSTORE por WhatsApp">
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+</a>
+<span class="wa-zone" id="waZone" aria-hidden="true"></span>
+<div class="wa-aviso" id="waAviso" role="status" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- =====================================================================
+     CONFIGURACIÓN DE LA TIENDA
+     - supabaseUrl y supabaseKey: los MISMOS valores públicos que ya usaba
+       esta tienda (clave publishable). Nunca pongas la clave secret ni la
+       service_role.
+     - whatsapp: número de la tienda, solo dígitos con código de país
+       (54 + 9 + código de área sin 0 + número sin 15). Vacío = sin configurar.
+     ===================================================================== -->
+<script>
+window.ELDOSTORE_CONFIG = {
+  supabaseUrl: 'https://vahzvjhrtnfcjfrmwbol.supabase.co',
+  supabaseKey: 'sb_publishable_KRkiaaG_AGTo-oWI1OB16A_T8AfrvFQ',
+  whatsapp: '5493757613059',   // 3757 613059 en formato internacional: 54 + 9 + 3757 + 613059
+  whatsapp2: '5493751366502',  // 3751 366502 (segundo número para recibir pedidos del carrito)
+  instagram: 'https://www.instagram.com/eldostore_/',
+  envioGratisDesde: 12000
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/tienda.js"></script>
+</body>
+</html>

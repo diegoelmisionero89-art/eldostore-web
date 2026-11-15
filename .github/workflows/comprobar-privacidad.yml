@@ -1,0 +1,20 @@
+name: Comprobar privacidad
+
+# En cada cambio del repositorio público revisa que no se haya subido nada privado
+# (inventarios, costos, respaldos, SQL, claves, emails). Si encuentra algo, falla y avisa.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  revisar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - name: Revisar archivos
+        run: python3 herramientas/comprobar-privacidad.py .
