@@ -184,9 +184,14 @@ function cuentaBadge(accountId) {
   return `<span class="badge badge-cta ${cls}">${esc(a ? a.nombre : '—')}</span>`;
 }
 
+/* Unidades de un producto PROPIO reservadas por compras del Marketplace sin pagar (asociados.js, migración 009).
+   Sin la 009 o sin reservas devuelve 0 y todo funciona exactamente igual que antes. */
+function reservadasDe(productoId) { return typeof reservaMkt === 'function' ? reservaMkt(productoId).unidades : 0; }
+function comprasReservaDe(productoId) { return typeof reservaMkt === 'function' ? reservaMkt(productoId).compras.join(', ') : ''; }
+
 function productOptions(selectedId) {
   return DB.products.map(p =>
-    `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.codigo} — ${p.nombre} (stock: ${p.stock})</option>`).join('');
+    `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.codigo} — ${p.nombre} (stock: ${p.stock}${reservadasDe(p.id) ? `, ${reservadasDe(p.id)} reservada${reservadasDe(p.id) === 1 ? '' : 's'} en el Marketplace` : ''})</option>`).join('');
 }
 
 /* ============================== DASHBOARD ================================ */
@@ -246,7 +251,7 @@ function renderProducts() {
       <td>${fmt(p.precio)}${precioPromoHTML(p)}</td>
       <td>${fmt(p.gananciaUnit)}</td>
       <td>${p.margenPct}%</td>
-      <td>${p.stock}${p.stock <= p.stockMin ? ' <span class="badge badge-warn">bajo</span>' : ''}</td>
+      <td>${p.stock}${p.stock <= p.stockMin ? ' <span class="badge badge-warn">bajo</span>' : ''}${reservadasDe(p.id) ? ` <span class="badge badge-info" title="Reservadas por compras del Marketplace sin pagar: ${esc(comprasReservaDe(p.id))}">${reservadasDe(p.id)} reservada${reservadasDe(p.id) === 1 ? '' : 's'}</span>` : ''}</td>
       <td>${fmt(p.valorStock)}</td>
       <td class="row-actions">
         <button class="icon-action" onclick="adjustStockPrompt('${p.id}', 1)">+</button>
@@ -771,8 +776,12 @@ function addSaleDraftItem() {
   if (!p) { showToast('Cargá al menos un producto antes.'); return; }
   if (cantidad <= 0) { showToast('Cantidad inválida.'); return; }
   const enBorrador = saleDraftItems.filter(x => x.productoId === productoId).reduce((a, x) => a + x.cantidad, 0);
-  const disponible = p.stock + unidadesEnVentaOriginal(productoId) - enBorrador;
-  if (cantidad > disponible) { showToast(`Stock insuficiente de "${p.nombre}" (disponible: ${disponible}).`); return; }
+  const reservadas = reservadasDe(productoId);   // compras del Marketplace sin pagar (migración 009)
+  const disponible = p.stock + unidadesEnVentaOriginal(productoId) - enBorrador - reservadas;
+  if (cantidad > disponible) {
+    showToast(`Stock insuficiente de "${p.nombre}" (disponible: ${Math.max(disponible, 0)}${reservadas ? `; ${reservadas} reservada${reservadas === 1 ? '' : 's'} por compras del Marketplace: ${comprasReservaDe(productoId)}` : ''}).`);
+    return;
+  }
   const linea = { productoId, cantidad, precioVenta: p.precio, nombre: p.nombre, costoUnit: costoParaLinea(productoId), comisionPct: '',
                   ownerAccountId: duenoParaLinea(productoId), precioHabitual: p.precio };
   if (!saleEditingId) aplicarDescuentoLinea(linea, true);

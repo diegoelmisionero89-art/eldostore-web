@@ -57,6 +57,11 @@ async function cargarAsociados() {
     MKT.compras = (d.compras || []).map(c => Object.assign(c, { total: Number(c.total), total_propio: Number(c.total_propio), total_vendedores: Number(c.total_vendedores),
       pedidos: (c.pedidos || []).map(p => Object.assign(p, { subtotal: Number(p.subtotal), comision: Number(p.comision), monto_vendedor: Number(p.monto_vendedor) })) }));
     MKT.liquidaciones = (d.liquidaciones || []).map(l => Object.assign(l, { monto_vendedor: Number(l.monto_vendedor), comision: Number(l.comision) }));
+    MKT.reservas = new Map();
+    if (MKT.etapaD) {
+      try { for (const x of (await rpcCuentas('mkt_reservas_stock', {})) || []) MKT.reservas.set(x.productoId, { unidades: Number(x.unidades), compras: x.compras || [] }); }
+      catch (e) { console.warn('No se pudieron leer las reservas del Marketplace:', e); }
+    }
     for (const v of MKT.vendedores) if (!v.estado) v.estado = v.activo ? 'activo' : 'pendiente';
   } catch (e) {
     MKT.disponible = false;
@@ -70,6 +75,8 @@ async function rpcMkt(nombre, args) {
   return r;
 }
 const vendedorMkt = id => MKT.vendedores.find(v => v.id === id);
+/* Reservas de stock propio por compras del Marketplace sin pagar (las usa ui.js en productos, ventas y ajustes). */
+function reservaMkt(productId) { return (MKT.reservas && MKT.reservas.get(productId)) || { unidades: 0, compras: [] }; }
 const productoMkt = id => MKT.productos.find(p => p.id === id);
 const mktAdmin = () => MKT.esAdmin ? '' : 'disabled';
 /* Comisión: igual que la base (total × % / 100, al peso). */
@@ -673,7 +680,7 @@ async function confirmarPagoMkt(id) {
   try {
     await rpcMkt('mkt_registrar_pago', { p_compra: id, p_datos: { medio: document.getElementById('mpg_medio').value, monto,
       referencia: document.getElementById('mpg_ref').value.trim(), holder_id: document.getElementById('mpg_quien').value } });
-    await refreshCash(); closeModal(); mktCompraFiltro = 'pago_registrado'; renderAsociados();
+    await Promise.all([refreshCash(), refreshProducts(), refreshSales()]); closeModal(); mktCompraFiltro = 'pago_registrado'; renderAsociados();
     showToast(`Pago de ${c.numero} registrado: venta propia ${fmt(c.total_propio)} y ${fmt(c.total_vendedores)} a «Dinero de vendedores».`);
   } catch (e) { showError(e); btn.disabled = false; btn.textContent = 'Registrar pago'; }
 }
@@ -691,7 +698,7 @@ async function confirmarAnularCompraMkt(id) {
   const motivo = document.getElementById('mac_motivo').value.trim();
   if (motivo.length < 3) { showToast('Indicá el motivo.'); return; }
   const q = document.getElementById('mac_quien'), btn = document.getElementById('macBtn'); btn.disabled = true;
-  try { await rpcMkt('mkt_anular_compra', { p_compra: id, p_motivo: motivo, p_holder_id: q ? q.value : null }); await refreshCash(); closeModal(); renderAsociados(); showToast('Compra anulada.'); }
+  try { await rpcMkt('mkt_anular_compra', { p_compra: id, p_motivo: motivo, p_holder_id: q ? q.value : null }); await Promise.all([refreshCash(), refreshProducts(), refreshSales()]); closeModal(); renderAsociados(); showToast('Compra anulada.'); }
   catch (e) { showError(e); btn.disabled = false; }
 }
 async function entregaMkt(pedidoId, estado) {
