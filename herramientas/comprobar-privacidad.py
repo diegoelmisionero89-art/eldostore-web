@@ -22,8 +22,9 @@ RAIZ = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
 
 # Lo ÚNICO que este repositorio puede contener (todo lo demás se rechaza).
 PERMITIDOS_EXACTOS = {
-    "index.html", "admin.html", "admin.css", "404.html", "CNAME", "README.md",
-    "css/tienda.css", "herramientas/generar-fichas.py", "herramientas/comprobar-privacidad.py",
+    "index.html", "admin.html", "admin.css", "404.html", "CNAME", "README.md", "vendedor.html",
+    "css/tienda.css", "herramientas/generar-fichas.py", "herramientas/generar-vendedores.py",
+    "herramientas/comprobar-privacidad.py",
     ".github/workflows/fichas-compartir.yml", ".github/workflows/comprobar-privacidad.yml",
 }
 PERMITIDOS_PATRON = [
@@ -32,6 +33,7 @@ PERMITIDOS_PATRON = [
     re.compile(r"^p/fotos\.json$"),
     re.compile(r"^p/[A-Za-z0-9-]+/index\.html$"),
     re.compile(r"^p/[A-Za-z0-9-]+/foto\.jpg$"),
+    re.compile(r"^vendedores/[a-z0-9]+(-[a-z0-9]+)*/index\.html$"),   # tiendas asociadas (Marketplace)
 ]
 NOMBRES_PROHIBIDOS = re.compile(
     r"(inventario|respaldo|backup|dump|migracion|\.sql$|\.csv$|\.xlsx?$|\.ods$|\.env|\.pem$|\.key$|\.bundle$)",

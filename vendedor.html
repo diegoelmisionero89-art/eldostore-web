@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Portal de vendedores | ELDOSTORE</title>
+<meta name="theme-color" content="#080808">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23080808'/%3E%3Ctext x='50' y='68' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='58' fill='%23d4aa4b' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/tienda.css">
+<style>
+  /* Portal de vendedores asociados: SOLO LECTURA (Marketplace · migración 008) */
+  body{background:var(--bg);color:var(--text);font-family:var(--font);margin:0}
+  .vp-top{background:var(--ink);color:#fff;padding:12px var(--gutter-r) 12px var(--gutter-l)}
+  .vp-top-in{max-width:960px;margin:0 auto;display:flex;align-items:center;gap:12px}
+  .vp-top b{color:var(--gold)}
+  .vp-top .vp-sp{flex:1}
+  .vp-wrap{max-width:960px;margin:0 auto;padding:18px var(--gutter-r) 60px var(--gutter-l)}
+  .vp-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+  .vp-card h1,.vp-card h2{margin:0 0 8px}
+  .vp-card h1{font-size:22px}.vp-card h2{font-size:18px}
+  .vp-form{display:flex;flex-direction:column;gap:12px;max-width:420px}
+  .vp-form label{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:14px}
+  .vp-form input{min-height:46px;padding:0 12px;border:1px solid var(--line);border-radius:10px;font-size:16px}
+  .vp-btn{min-height:46px;padding:0 18px;border:0;border-radius:12px;background:var(--ink);color:var(--gold);font-weight:800;font-size:15px;cursor:pointer}
+  .vp-btn.sec{background:#fff;color:var(--text);border:1px solid var(--line)}
+  .vp-top .vp-btn{min-height:38px;background:transparent;color:#fff;border:1px solid #444;font-size:13px}
+  .vp-msg{padding:12px 14px;border-radius:12px;font-size:14.5px;margin:0 0 14px}
+  .vp-msg.err{background:#fde8e8;color:#9b1c1c}.vp-msg.ok{background:var(--ok-bg);color:var(--ok)}.vp-msg.warn{background:var(--warn-bg);color:var(--warn)}
+  .vp-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;background:var(--off-bg);color:var(--off)}
+  .vp-badge.ok{background:var(--ok-bg);color:var(--ok)}.vp-badge.warn{background:var(--warn-bg);color:var(--warn)}.vp-badge.no{background:#fde8e8;color:#9b1c1c}
+  .vp-datos{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px}
+  .vp-dato{background:var(--bg);border-radius:10px;padding:10px 12px}
+  .vp-dato span{display:block;font-size:12px;color:var(--muted)}.vp-dato b{font-size:15px;overflow-wrap:anywhere}
+  .vp-prods{display:flex;flex-direction:column;gap:10px}
+  .vp-prod{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+  .vp-prod img,.vp-prod .vp-sin{flex:none;width:72px;height:72px;border-radius:10px;object-fit:contain;background:var(--bg)}
+  .vp-prod .vp-sin{display:grid;place-items:center;font-size:11px;color:var(--muted)}
+  .vp-prod-t{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}
+  .vp-prod-t b{overflow-wrap:anywhere}
+  .vp-prod-t small{color:var(--muted)}
+  .vp-muted{color:var(--muted);font-size:14px}
+  .vp-hidden{display:none!important}
+</style>
+</head>
+<body>
+<header class="vp-top"><div class="vp-top-in">
+  <span><b>ELDOSTORE</b> · Portal de vendedores</span><span class="vp-sp"></span>
+  <button class="vp-btn vp-hidden" id="vpSalir" type="button">Cerrar sesión</button>
+</div></header>
+
+<main class="vp-wrap" id="vpMain" aria-live="polite">
+  <div class="vp-card"><p class="vp-muted">Cargando…</p></div>
+</main>
+
+<noscript><p style="padding:16px">Para usar el portal necesitás activar JavaScript.</p></noscript>
+<script>
+window.ELDOSTORE_CONFIG = {
+  supabaseUrl: 'https://vahzvjhrtnfcjfrmwbol.supabase.co',
+  supabaseKey: 'sb_publishable_KRkiaaG_AGTo-oWI1OB16A_T8AfrvFQ',
+  whatsapp: '5493757613059'
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/vendedor.js"></script>
+</body>
+</html>

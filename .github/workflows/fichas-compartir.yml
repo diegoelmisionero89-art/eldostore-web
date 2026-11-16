@@ -13,7 +13,7 @@ name: Fichas para compartir
 on:
   push:
     branches: [main, galeria-ficha]
-    paths: ['herramientas/generar-fichas.py', '.github/workflows/fichas-compartir.yml']
+    paths: ['herramientas/generar-fichas.py', 'herramientas/generar-vendedores.py', '.github/workflows/fichas-compartir.yml']
   workflow_dispatch:
   schedule:
     - cron: '17 * * * *'
@@ -53,6 +53,15 @@ jobs:
           fi
           python herramientas/generar-fichas.py --base "$base" --pagina "$pagina" --copiar-fotos --resumen "$GITHUB_STEP_SUMMARY"
 
+      - name: Direcciones de las tiendas asociadas (/vendedores/<tienda>/)
+        # Solo si el Marketplace está encendido (migración 008); apagado o sin instalar, no publica nada.
+        run: |
+          set -euo pipefail
+          rama="${GITHUB_REF_NAME}"
+          if [ "$rama" = "main" ]; then base="https://eldostore.com.ar/"; pagina=""
+          else base="https://raw.githack.com/${GITHUB_REPOSITORY}/${rama}/"; pagina="index.html"; fi
+          python herramientas/generar-vendedores.py --base "$base" --pagina "$pagina" --resumen "$GITHUB_STEP_SUMMARY"
+
       - name: Verificar que todo use el dominio oficial (solo en main)
         if: github.ref_name == 'main'
         run: |
@@ -71,6 +80,7 @@ jobs:
       - name: Guardar cambios
         run: |
           git add -A p
+          if [ -d vendedores ] || git ls-files --error-unmatch vendedores >/dev/null 2>&1; then git add -A vendedores; fi
           if git diff --cached --quiet; then echo "Sin cambios en las páginas."; exit 0; fi
           git -c user.name="ELDOSTORE bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Fichas para compartir: actualización automática"
