@@ -1618,10 +1618,10 @@
 },
 "247": {
 "medidas": [
-1200,
-900
+1097,
+1200
 ],
-"origen": "https://vahzvjhrtnfcjfrmwbol.supabase.co/storage/v1/object/public/productos-fotos/1794855108875-a796ax2o37p.jpg"
+"origen": "https://vahzvjhrtnfcjfrmwbol.supabase.co/storage/v1/object/public/productos-fotos/1794865305035-0ex44dp9kpsb.jpg"
 },
 "248": {
 "medidas": [
@@ -1713,5 +1713,19 @@
 500
 ],
 "origen": "https://vahzvjhrtnfcjfrmwbol.supabase.co/storage/v1/object/public/productos-fotos/1794810225830-9mcxmql58vc.jpg"
+},
+"261": {
+"medidas": [
+1097,
+1200
+],
+"origen": "https://vahzvjhrtnfcjfrmwbol.supabase.co/storage/v1/object/public/productos-fotos/1794865624767-3voocqtzrib.jpg"
+},
+"262": {
+"medidas": [
+675,
+1200
+],
+"origen": "https://vahzvjhrtnfcjfrmwbol.supabase.co/storage/v1/object/public/productos-fotos/1794866082757-ixartwpmyym.jpg"
 }
 }
