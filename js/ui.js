@@ -179,6 +179,7 @@ function holderOptions(selectedId, { todos = false, vacia = '' } = {}) {
 }
 function cuentaBadge(accountId) {
   const a = CUENTAS.accounts.find(x => x.id === accountId);
+  if (a && a.tipo === 'terceros') return '<span class="badge badge-warn" title="Dinero de vendedores: no es de ELDOSTORE">Vendedores (terceros)</span>';
   const cls = !a ? '' : a.codigo === 'eldostore' ? 'badge-cta-eldo' : a.codigo === 'niko' ? 'badge-cta-niko' : 'badge-cta-aye';
   return `<span class="badge badge-cta ${cls}">${esc(a ? a.nombre : '—')}</span>`;
 }
@@ -203,7 +204,7 @@ function renderDashboard() {
     ['Ganancia bruta del mes', fmt(d.gananciaMes), 'gold'],
     ['Comisiones del mes', fmt(d.comisionesMes), d.comisionesMes > 0 ? 'red' : ''],
     ['Gastos del mes', fmt(d.gastosMes), 'red'],
-    ['Caja disponible', fmt(d.caja), 'gold'],
+    [hayCuentaTerceros() ? 'Caja propia' : 'Caja disponible', fmt(d.caja), 'gold'],
     ['Stock bajo', d.productosBajoStock.length, d.productosBajoStock.length > 0 ? 'red' : '']
   ];
   document.getElementById('kpiGrid').innerHTML = kpis.map(([label, val, cls]) =>
@@ -214,8 +215,10 @@ function renderDashboard() {
     `<div class="chart-bar" style="height:${Math.max(2, (x.total / max) * 130)}px" title="${fmt(x.total)}"><small>${x.label}</small></div>`).join('');
 
   const porCuenta = document.getElementById('dashCuentas');
-  if (porCuenta) porCuenta.innerHTML = modoCuentas() ? CUENTAS.accounts.map(a =>
-    `<div class="kpi gold"><span>Saldo ${esc(a.nombre)}</span><strong>${fmt(cashBalance(m => m.accountId === a.id))}</strong></div>`).join('') : '';
+  if (porCuenta) porCuenta.innerHTML = modoCuentas() ? CUENTAS.accounts.filter(a => a.tipo !== 'terceros').map(a =>
+    `<div class="kpi gold"><span>Saldo ${esc(a.nombre)}</span><strong>${fmt(cashBalance(m => m.accountId === a.id))}</strong></div>`).join('')
+    + (hayCuentaTerceros() ? `<div class="kpi"><span>Dinero de vendedores (no es de ELDOSTORE)</span><strong>${fmt(dineroVendedores())}</strong></div>
+      <div class="kpi"><span>Dinero físico total (propio + vendedores)</span><strong>${fmt(cajaPropia() + dineroVendedores())}</strong></div>` : '') : '';
 
   const tbody = document.querySelector('#lowStockTable tbody');
   tbody.innerHTML = d.productosBajoStock.length
@@ -1136,7 +1139,16 @@ function renderCash() {
   const egresos = round2(list.filter(m => m.tipo === 'egreso').reduce((a, m) => a + m.monto, 0));
   document.getElementById('cajaIngresos').textContent = fmt(ingresos);
   document.getElementById('cajaEgresos').textContent = fmt(egresos);
-  document.getElementById('cajaSaldo').textContent = fmt(cashBalance(filtro));
+  // Sin filtro de cuenta, el saldo es el PROPIO; el dinero de vendedores se muestra aparte (Marketplace).
+  const sinCuenta = !cuenta && hayCuentaTerceros();
+  document.getElementById('cajaSaldo').textContent = fmt(cashBalance(sinCuenta ? (m => filtro(m) && !esCuentaTerceros(m.accountId)) : filtro));
+  let nota = document.getElementById('cajaSaldoNota');
+  if (sinCuenta) {
+    if (!nota) { nota = document.createElement('small'); nota.id = 'cajaSaldoNota'; nota.style.cssText = 'display:block;color:var(--muted);margin-top:4px';
+      document.getElementById('cajaSaldo').after(nota); }
+    const terc = cashBalance(m => filtro(m) && esCuentaTerceros(m.accountId));
+    nota.textContent = `Saldo propio. Dinero de vendedores: ${fmt(terc)} (no es de ELDOSTORE) · Físico total: ${fmt(cashBalance(filtro))}`;
+  } else if (nota) nota.remove();
 
   document.getElementById('cajaTableBody').innerHTML = list.length ? list.map(m =>
     `<tr><td>${fmtDate(m.fecha)}</td>
@@ -1362,7 +1374,8 @@ async function renderCuentas() {
     const [resumen, posiciones] = await Promise.all([resumenCuentas(desde, hasta), posicionesCaja()]);
     const orden = id => CUENTAS.accounts.findIndex(a => a.id === id);
     resumen.sort((x, y) => orden(x.account_id) - orden(y.account_id));
-    cont.innerHTML = resumen.map(r => `
+    const tercerosId = (CUENTAS.accounts.find(a => a.tipo === 'terceros') || {}).id;
+    cont.innerHTML = resumen.filter(r => r.account_id !== tercerosId).map(r => `
       <div class="panel cuenta-card">
         <h3>${cuentaBadge(r.account_id)}</h3>
         <div class="cuenta-filas">
@@ -1377,18 +1390,29 @@ async function renderCuentas() {
           <div><span>Repartos recibidos / enviados</span><strong>${fmt(Number(r.repartos_recibidos))} / ${fmt(Number(r.repartos_enviados))}</strong></div>
           <div class="destacado"><span>Saldo de caja (total)</span><strong>${fmt(Number(r.saldo_caja))}</strong></div>
         </div>
+      </div>`).join('') + resumen.filter(r => r.account_id === tercerosId).map(r => `
+      <div class="panel cuenta-card" style="border-style:dashed">
+        <h3>${cuentaBadge(r.account_id)}</h3>
+        <p class="muted-sm">Dinero cobrado por cuenta de las tiendas asociadas. <b>No es de ELDOSTORE</b>: no suma en ventas, ganancias ni caja propia. Se detalla en «Tiendas asociadas → Marketplace».</p>
+        <div class="cuenta-filas"><div class="destacado"><span>Dinero de vendedores</span><strong>${fmt(Number(r.saldo_caja))}</strong></div></div>
       </div>`).join('');
 
     // Matriz: de qué cuenta es el dinero (filas) y quién lo tiene (columnas)
     const holders = CUENTAS.holders.filter(h => h.activo);
+    const propias = CUENTAS.accounts.filter(a => a.tipo !== 'terceros'), terceras = CUENTAS.accounts.filter(a => a.tipo === 'terceros');
     const saldo = (a, h) => Number((posiciones.find(p => p.account_id === a && p.holder_id === h) || {}).saldo || 0);
     document.getElementById('ctaPosiciones').innerHTML = `
       <thead><tr><th>Cuenta \\ Tiene el dinero</th>${holders.map(h => `<th>${esc(h.nombre)}</th>`).join('')}<th>Total</th></tr></thead>
-      <tbody>${CUENTAS.accounts.map(a => `<tr><td>${esc(a.nombre)}</td>
+      <tbody>${propias.map(a => `<tr><td>${esc(a.nombre)}</td>
         ${holders.map(h => `<td>${fmt(saldo(a.id, h.id))}</td>`).join('')}
         <td><strong>${fmt(round2(holders.reduce((s, h) => s + saldo(a.id, h.id), 0)))}</strong></td></tr>`).join('')}
-        <tr><td><strong>Total</strong></td>${holders.map(h => `<td><strong>${fmt(round2(CUENTAS.accounts.reduce((s, a) => s + saldo(a.id, h.id), 0)))}</strong></td>`).join('')}
-        <td><strong>${fmt(round2(posiciones.reduce((s, p) => s + Number(p.saldo), 0)))}</strong></td></tr></tbody>`;
+        <tr><td><strong>${terceras.length ? 'Total propio' : 'Total'}</strong></td>${holders.map(h => `<td><strong>${fmt(round2(propias.reduce((s, a) => s + saldo(a.id, h.id), 0)))}</strong></td>`).join('')}
+        <td><strong>${fmt(round2(posiciones.filter(p => !esCuentaTerceros(p.account_id)).reduce((s, p) => s + Number(p.saldo), 0)))}</strong></td></tr>
+        ${terceras.map(a => `<tr><td>${cuentaBadge(a.id)} <small>no es de ELDOSTORE</small></td>
+          ${holders.map(h => `<td>${fmt(saldo(a.id, h.id))}</td>`).join('')}
+          <td>${fmt(round2(holders.reduce((s, h) => s + saldo(a.id, h.id), 0)))}</td></tr>
+          <tr><td><strong>Total físico</strong></td>${holders.map(h => `<td><strong>${fmt(round2(CUENTAS.accounts.reduce((s, x) => s + saldo(x.id, h.id), 0)))}</strong></td>`).join('')}
+          <td><strong>${fmt(round2(posiciones.reduce((s, p) => s + Number(p.saldo), 0)))}</strong></td></tr>`).join('')}</tbody>`;
   } catch (e) {
     cont.innerHTML = '';
     showError(e);

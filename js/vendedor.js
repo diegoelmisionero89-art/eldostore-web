@@ -29,6 +29,7 @@
     suspendido: ["warn", "Suspendida", "Tu tienda está suspendida: no se ve en la web por ahora."],
     bloqueado: ["no", "Bloqueada", "Tu tienda está bloqueada: no se ve en la web."]
   };
+  const ENTREGA = { pendiente: "Entrega pendiente", preparando: "En preparación", entregado: "Entregado", cancelado: "Cancelado" };
   const PROD = { pendiente: ["warn", "Pendiente de aprobación"], aprobado: ["ok", "Aprobado"], pausado: ["", "Pausado"], rechazado: ["no", "Rechazado"] };
 
   if (!window.supabase || !CFG.supabaseUrl) { main.innerHTML = '<div class="vp-card"><p class="vp-msg err">No se pudo cargar el portal. Probá de nuevo en un rato.</p></div>'; return; }
@@ -92,6 +93,7 @@
     const t = d.tienda || {}, e = ESTADO[t.estado] || ["", t.estado, ""];
     const prods = Array.isArray(d.productos) ? d.productos : [];
     const publicados = prods.filter(p => p.publicado).length;
+    const pedidos = Array.isArray(d.pedidos) ? d.pedidos : [];
     main.innerHTML = `${aviso ? `<p class="vp-msg ok" role="status">${esc(aviso)}</p>` : ""}
       ${d.marketplaceActivo ? "" : '<p class="vp-msg warn">El Marketplace de ELDOSTORE todavía no está abierto al público: por ahora tu tienda y tus productos no se ven en la web.</p>'}
       <section class="vp-card" aria-labelledby="vpT">
@@ -114,15 +116,28 @@
           return `<article class="vp-prod">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : '<span class="vp-sin">Sin foto</span>'}
             <div class="vp-prod-t"><b>${esc(p.nombre)}</b>
               <small>${esc(p.codigo)}${p.categoria ? " · " + esc(p.categoria) : ""}</small>
-              <small>${money(p.precio)} · stock ${Number(p.stock)} · comisión ${pct(p.comisionPct)}</small>
+              <small>${money(p.precio)} · stock ${Number(p.stock)}${Number(p.apartado) ? " (" + Number(p.apartado) + " apartado en compras sin pagar)" : ""} · comisión ${pct(p.comisionPct)}</small>
               <span><span class="vp-badge ${s[0]}">${esc(s[1])}</span> ${p.bloqueado ? '<span class="vp-badge no">Bloqueado</span>' : ""}
                 <span class="vp-badge ${p.publicado ? "ok" : ""}">${p.publicado ? "Se ve en la web" : "No se ve en la web"}</span></span>
               ${p.motivoBloqueo ? `<small>Motivo: ${esc(p.motivoBloqueo)}</small>` : ""}</div></article>`;
         }).join("") : '<p class="vp-muted">Todavía no hay productos cargados en tu tienda.</p>'}</div>
       </section>
       <section class="vp-card" aria-labelledby="vpPed">
-        <h2 id="vpPed">Mis pedidos</h2>
-        ${Array.isArray(d.pedidos) && d.pedidos.length ? "" : '<p class="vp-muted">Todavía no hay pedidos. Cuando ELDOSTORE habilite las compras, acá vas a ver los pedidos de tu tienda.</p>'}
+        <h2 id="vpPed">Mis pedidos${pedidos.length ? " (" + pedidos.length + ")" : ""}</h2>
+        ${pedidos.length ? `<p class="vp-muted">Pedidos con pago registrado por ELDOSTORE. La entrega y la liquidación las actualiza ELDOSTORE.</p>
+          <div class="vp-datos" style="margin-bottom:12px">
+            <div class="vp-dato"><span>A cobrar (entregados o no, sin liquidar)</span><b>${money(pedidos.filter(p => p.compraEstado === "pago_registrado" && !p.liquidado).reduce((a, p) => a + Number(p.paraVos), 0))}</b></div>
+            <div class="vp-dato"><span>Ya liquidado</span><b>${money(pedidos.filter(p => p.liquidado).reduce((a, p) => a + Number(p.paraVos), 0))}</b></div>
+          </div>
+          <div class="vp-prods">${pedidos.map(p => `<article class="vp-prod" style="display:block">
+            <b>${esc(p.numero)}</b> <small class="vp-muted">${esc(new Date(p.fecha).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }))}</small>
+            <span class="vp-badge ${p.compraEstado === "anulada" ? "no" : p.entrega === "entregado" ? "ok" : "warn"}">${p.compraEstado === "anulada" ? "Anulado" : esc(ENTREGA[p.entrega] || p.entrega)}</span>
+            ${p.liquidado ? '<span class="vp-badge ok">Liquidado</span>' : ""}
+            <ul style="margin:8px 0;padding-left:18px">${(p.items || []).map(i => `<li>${Number(i.cantidad)} × ${esc(i.nombre)} (${esc(i.codigo)}) · ${money(i.subtotal)}</li>`).join("")}</ul>
+            <small>Venta ${money(p.subtotal)} · comisión ELDOSTORE ${money(p.comision)} · <b>para vos ${money(p.paraVos)}</b></small><br>
+            <small>Cliente: ${esc(p.cliente.nombre)} · WhatsApp ${esc(p.cliente.whatsapp)}${p.cliente.zona ? " · " + esc(p.cliente.zona) : ""}${p.cliente.notas ? " · «" + esc(p.cliente.notas) + "»" : ""}</small>
+          </article>`).join("")}</div>`
+          : '<p class="vp-muted">Todavía no hay pedidos. Cuando ELDOSTORE habilite las compras, acá vas a ver los pedidos de tu tienda.</p>'}
       </section>`;
   }
 

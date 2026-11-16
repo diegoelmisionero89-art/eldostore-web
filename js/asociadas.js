@@ -8,6 +8,12 @@
      no se muestra nada y la tienda queda exactamente como antes.
    - Formulario «Quiero vender» (#quiero-vender): solo con el Marketplace encendido;
      envía la solicitud con mkt_solicitar_alta() y el administrador la aprueba.
+   - Etapa D (migración 009, «compras»): los productos de TODAS las tiendas van a una
+     sola compra, a la que se pueden sumar los del carrito de ELDOSTORE. Se paga a
+     ELDOSTORE (pago completo) y la base calcula precios, comisiones y stock.
+     #compra/<enlace privado> muestra el estado de la compra. Sin la 009, cada tienda
+     recibe su pedido por WhatsApp (como en la Etapa C). Un carrito SOLO con productos
+     de ELDOSTORE sigue funcionando exactamente igual (tienda.js no se toca).
    - Los productos de vendedores NO se mezclan con los de ELDOSTORE: no están
      en catalogo_tienda() («Todos los productos»), ni en el buscador, ni en el
      carrito de ELDOSTORE. Cada tienda tiene su propio pedido, que se envía al
@@ -56,6 +62,7 @@
       } else {
         if (!data || data.activo !== true) return false;   // interruptor apagado: la tienda queda como siempre
         D.formulario = true;
+        D.compras = data.compras === true;   // migración 009 instalada y Marketplace encendido
       }
       D.vendedores = (data.vendedores || []).map(v => ({
         id: String(v.id), slug: String(v.slug || ""), nombre: limpiar(v.nombre, 80), descripcion: String(v.descripcion || "").slice(0, 600),
@@ -177,6 +184,7 @@
   function leerRuta() {
     const h = location.hash;
     if (h === "#quiero-vender") return { vender: true, slug: "", codigo: "" };
+    if (h.startsWith("#compra/")) return { compra: h.slice(8).replace(/[^a-f0-9]/g, "").slice(0, 64), slug: "", codigo: "" };
     if (h !== "#tiendas" && !h.startsWith("#tiendas/")) return null;
     const partes = h.slice(1).split("/").map(x => { try { return decodeURIComponent(x); } catch (e) { return ""; } });
     return { slug: partes[1] || "", codigo: partes.slice(2).join("/") || "" };
@@ -186,7 +194,7 @@
     return `<div class="f-bar as-bar">
       <button type="button" class="f-back" data-as="volver" aria-label="Volver">${ATRAS}<span>Volver</span></button>
       <span class="as-bar-t">${esc(titulo)}</span>
-      ${v ? `<button type="button" class="f-cart" data-as="pedido" aria-label="Ver pedido a ${esc(v.nombre)}: ${u} artículos, ${money(t)}">${TIENDA_SVG}<span class="cart-count">${u}</span><span>${money(t)}</span></button>` : "<span></span>"}
+      ${D.compras ? botonCompra() : v ? `<button type="button" class="f-cart" data-as="pedido" aria-label="Ver pedido a ${esc(v.nombre)}: ${u} artículos, ${money(t)}">${TIENDA_SVG}<span class="cart-count">${u}</span><span>${money(t)}</span></button>` : "<span></span>"}
     </div>`;
   }
   function cardHTML(v, p, conTienda) {
@@ -242,7 +250,7 @@
       ${v.productos.length > 8 ? `<label class="search as-buscar"><span class="sr">Buscar en ${esc(v.nombre)}</span><input type="search" id="asBuscar" placeholder="Buscar en ${esc(v.nombre)}…" value="${esc(filtroTienda.texto)}" autocomplete="off"></label>` : ""}
       <div class="products as-prods" id="asProds">${lista.length ? lista.map(p => cardHTML(v, p)).join("")
         : `<div class="state"><b>${v.productos.length ? "No encontramos productos con esa búsqueda." : "Esta tienda todavía no tiene productos publicados."}</b></div>`}</div>
-      ${ls.length ? `<button type="button" class="as-flota" data-as="pedido">${TIENDA_SVG}<span>Ver pedido a ${esc(v.nombre)} · <b>${money(ls.reduce((a, l) => a + l.sub, 0))}</b></span></button>` : ""}
+      ${D.compras ? flotaCompra() : ls.length ? `<button type="button" class="as-flota" data-as="pedido">${TIENDA_SVG}<span>Ver pedido a ${esc(v.nombre)} · <b>${money(ls.reduce((a, l) => a + l.sub, 0))}</b></span></button>` : ""}
     </div>`;
     document.title = v.nombre + " | Tiendas asociadas | ELDOSTORE";
   }
@@ -334,6 +342,123 @@
     }
   });
 
+  /* ---------- Etapa D: una sola compra con productos de varias tiendas (+ los de ELDOSTORE) ---------- */
+  const CLAVE_COMPRAS = "eldostore_mis_compras_v1";
+  const CLAVE_CARRITO_ELDO = "eldostore_carrito_v1";   // el carrito de tienda.js (solo se LEE; se vacía al incluirlo)
+  function todasLasLineas() {
+    return D.vendedores.flatMap(v => lineas(v).map(l => Object.assign(l, { v })));
+  }
+  function carritoEldo() {
+    try {
+      const o = JSON.parse(localStorage.getItem(CLAVE_CARRITO_ELDO) || "{}");
+      if (!o || o.v !== 1 || typeof o.items !== "object" || !o.items) return [];
+      return Object.entries(o.items).filter(([k, q]) => /^id:[0-9a-f-]{36}$/.test(k) && Math.floor(Number(q)) >= 1)
+        .map(([k, q]) => ({ id: k.slice(3), cantidad: Math.min(99, Math.floor(Number(q))) }));
+    } catch (e) { return []; }
+  }
+  function botonCompra() {
+    const ls = todasLasLineas(), u = ls.reduce((a, l) => a + l.q, 0), t = ls.reduce((a, l) => a + l.sub, 0);
+    return `<button type="button" class="f-cart" data-as="pedido" aria-label="Ver mi compra en tiendas asociadas: ${u} artículos, ${money(t)}">${TIENDA_SVG}<span class="cart-count">${u}</span><span>${money(t)}</span></button>`;
+  }
+  function flotaCompra() {
+    const ls = todasLasLineas(); if (!ls.length) return "";
+    return `<button type="button" class="as-flota" data-as="pedido">${TIENDA_SVG}<span>Ver mi compra · <b>${money(ls.reduce((a, l) => a + l.sub, 0))}</b></span></button>`;
+  }
+  function misCompras() { try { const a = JSON.parse(localStorage.getItem(CLAVE_COMPRAS) || "[]"); return Array.isArray(a) ? a.filter(x => x && /^[a-f0-9]{64}$/.test(x.token)).slice(0, 20) : []; } catch (e) { return []; } }
+  function guardarMiCompra(c) { try { localStorage.setItem(CLAVE_COMPRAS, JSON.stringify([{ token: c.token, numero: c.numero }].concat(misCompras()).slice(0, 20))); } catch (e) { /* sin almacenamiento */ } }
+
+  let compraAbierta = false, enviandoCompra = false;
+  function abrirCompra() { compraAbierta = true; focoHoja = document.activeElement; dibujarHojaCompra(); hoja.hidden = false; const b = hoja.querySelector("[data-as=cerrar]"); if (b) b.focus(); }
+  function dibujarHojaCompra(error) {
+    const ls = todasLasLineas(), eldo = carritoEldo(), uEldo = eldo.reduce((a, x) => a + x.cantidad, 0);
+    const total = ls.reduce((a, l) => a + l.sub, 0);
+    const val = id => esc(($("#" + id) || {}).value || "");
+    const porTienda = D.vendedores.map(v => ({ v, ls: ls.filter(l => l.v === v) })).filter(x => x.ls.length);
+    hoja.innerHTML = `<div class="as-hoja-box" role="dialog" aria-modal="true" aria-labelledby="asCompT">
+      <div class="pan-hd"><h2 id="asCompT">Tu compra en tiendas asociadas</h2>
+        <button class="x-btn" type="button" data-as="cerrar" aria-label="Cerrar">✕</button></div>
+      <div class="as-hoja-cuerpo">${ls.length ? porTienda.map(({ v, ls }) => `
+        <p class="as-de-tienda">Lo vende y entrega <b>${esc(v.nombre)}</b></p>
+        <ul class="items">${ls.map(({ p, q, sub }) => `<li class="it" data-id="${esc(p.id)}" data-slug="${esc(v.slug)}">
+          <div class="it-ph">${p.fotos[0] ? `<img src="${esc(p.fotos[0])}" alt="">` : ""}</div>
+          <div style="min-width:0"><div class="it-top"><div style="min-width:0"><p class="it-nm">${esc(p.nombre)}</p><p class="it-unit">${esc(p.codigo)} · ${money(p.precio)} c/u</p></div>
+            <button class="rm" type="button" data-as="crm" aria-label="Quitar ${esc(p.nombre)}">✕</button></div>
+            <div class="it-row"><div class="qty" role="group" aria-label="Cantidad de ${esc(p.nombre)}">
+              <button type="button" data-as="cdec" aria-label="Restar uno">−</button><output>${q}</output>
+              <button type="button" data-as="cinc" aria-label="Sumar uno" ${q >= MAX ? "disabled" : ""}>+</button></div>
+              <span class="it-sub">${money(sub)}</span></div></div></li>`).join("")}</ul>`).join("") + `
+        ${uEldo ? `<label class="as-incluir"><input type="checkbox" id="asConEldo" checked> Sumar a esta compra ${uEldo === 1 ? "el producto" : "los " + uEldo + " productos"} de tu carrito de ELDOSTORE</label>` : ""}
+        <form class="fields" id="asCompraForm" onsubmit="return false">
+          <label for="acNombre">Tu nombre *<input id="acNombre" maxlength="80" autocomplete="name" value="${val("acNombre")}"></label>
+          <label for="acWa">Tu WhatsApp *<input id="acWa" inputmode="tel" maxlength="20" placeholder="Ej.: 3751 112233" autocomplete="tel" value="${val("acWa")}"></label>
+          <label for="acZona">Zona o dirección de entrega<input id="acZona" maxlength="120" value="${val("acZona")}"></label>
+          <label for="acNotas">Notas (opcional)<input id="acNotas" maxlength="300" value="${val("acNotas")}"></label>
+        </form>
+        ${error ? `<p class="status" role="alert">${esc(error)}</p>` : ""}`
+        : '<div class="cart-empty"><p>Todavía no agregaste productos de tiendas asociadas.</p></div>'}
+      </div>
+      ${ls.length ? `<div class="cart-ft"><div class="tot"><span>Total de tiendas asociadas${uEldo ? " (+ ELDOSTORE si lo sumás)" : ""}</span><strong>${money(total)}</strong></div>
+        <button class="send as-btn-compra" type="button" data-as="confirmar" ${enviandoCompra ? "disabled" : ""}>${enviandoCompra ? "Creando tu compra…" : "Confirmar compra"}</button>
+        <p class="legal">Pagás todo junto a ELDOSTORE (pago completo). El precio final lo confirma la tienda al crear la compra. Cada tienda prepara y entrega sus productos.</p></div>` : ""}
+    </div>`;
+  }
+  async function confirmarCompra() {
+    const val = id => ($("#" + id) || {}).value || "";
+    const nombre = limpiar(val("acNombre"), 80), wa = String(val("acWa")).replace(/\D/g, "");
+    if (nombre.length < 2) return dibujarHojaCompra("Escribí tu nombre.");
+    if (wa.length < 10) return dibujarHojaCompra("Revisá tu WhatsApp: código de área y número.");
+    const conEldo = !!($("#asConEldo") || {}).checked, eldo = conEldo ? carritoEldo() : [];
+    const items = todasLasLineas().map(l => ({ tipo: "mkt", id: l.p.id, cantidad: l.q })).concat(eldo.map(x => ({ tipo: "eldo", id: x.id, cantidad: x.cantidad })));
+    enviandoCompra = true; dibujarHojaCompra();
+    try {
+      const { data, error } = await sb.rpc("mkt_crear_compra", { p_datos: { cliente_nombre: nombre, cliente_whatsapp: wa,
+        cliente_zona: limpiar(val("acZona"), 120), notas: limpiar(val("acNotas"), 300), items } });
+      if (error) throw error;
+      guardarMiCompra(data);
+      pedidos = {}; guardar();
+      if (eldo.length) { try { localStorage.removeItem(CLAVE_CARRITO_ELDO); } catch (e) { /* sin almacenamiento */ } }
+      enviandoCompra = false;
+      location.hash = "#compra/" + data.token;
+      if (eldo.length) location.reload();   // el carrito de ELDOSTORE se vuelve a leer vacío
+      else { cerrarPedido(); redibujar(); }
+    } catch (x) {
+      enviandoCompra = false;
+      dibujarHojaCompra((x && x.message) || "No se pudo crear la compra. Probá de nuevo.");
+    }
+  }
+  const ESTADO_COMPRA = { pendiente_pago: ["Esperando tu pago", "warn"], pago_registrado: ["Pago registrado", "ok"], pago_acreditado: ["Pago acreditado", "ok"],
+    cancelada: ["Cancelada", "off"], vencida: ["Vencida (no se registró el pago a tiempo)", "off"], anulada: ["Anulada", "off"] };
+  const ENTREGA = { pendiente: "Pendiente", preparando: "En preparación", entregado: "Entregado", cancelado: "Cancelado" };
+  async function dibujarMiCompra(token) {
+    pag.innerHTML = barra("Mi compra") + '<div class="f-wrap"><div class="state"><b>Cargando tu compra…</b></div></div>';
+    document.title = "Mi compra | ELDOSTORE";
+    const { data: c, error } = await sb.rpc("mkt_ver_compra", { p_token: token });
+    if (!ruta || ruta.compra !== token) return;
+    if (error || !c) { pag.innerHTML = barra("Mi compra") + `<div class="f-wrap"><div class="state"><b>No encontramos esa compra.</b><br>Revisá el enlace.</div></div>`; return; }
+    const [txt, cls] = ESTADO_COMPRA[c.estado] || [c.estado, "off"];
+    const msg = `Hola ELDOSTORE, hice la compra ${c.numero} por ${money(c.total)}. Te envío el comprobante de pago.`;
+    pag.innerHTML = barra("Compra " + c.numero) + `<div class="f-wrap as-compra">
+      <h1 class="as-h1" id="asTitulo" tabindex="-1">Compra ${esc(c.numero)}</h1>
+      <p><span class="as-est ${cls}">${esc(txt)}</span></p>
+      <p class="as-total">Total: <b>${money(c.total)}</b></p>
+      ${c.estado === "pendiente_pago" ? `<div class="as-aviso"><b>Cómo pagar:</b> transferí el total exacto${c.instrucciones ? ":<br>" + esc(c.instrucciones).replace(/\n/g, "<br>") : "."}
+        <br>Tenés tiempo hasta el ${esc(new Date(c.vence).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }))}. Solo aceptamos el pago completo.</div>
+        ${CFG.whatsapp ? `<a class="f-wa" href="https://wa.me/${esc(CFG.whatsapp)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener noreferrer">${WA_SVG}Enviar el comprobante a ELDOSTORE</a>` : ""}` : ""}
+      ${c.pedidos.map(pe => `<section class="as-ped"><h2>${pe.esEldostore ? "ELDOSTORE" : esc(pe.vendedor)} <small>${esc(pe.numero)} · ${esc(ENTREGA[pe.entrega] || pe.entrega)}</small></h2>
+        <ul>${(pe.items || []).map(i => `<li>${i.cantidad} × ${esc(i.nombre)} <span>${money(i.subtotal)}</span></li>`).join("")}</ul>
+        <p class="as-ped-sub">Subtotal ${money(pe.subtotal)}${pe.esEldostore ? "" : " · lo entrega " + esc(pe.vendedor)}</p></section>`).join("")}
+      ${c.estado === "pendiente_pago" ? `<button type="button" class="as-cancelar" data-as="cancelar-compra" data-t="${esc(token)}">Cancelar esta compra</button>` : ""}
+      <p class="as-intro">Guardá este enlace: es privado y te muestra el estado de tu compra.</p></div>`;
+  }
+  pag.addEventListener("click", async e => {
+    const b = e.target.closest("[data-as=cancelar-compra]"); if (!b) return;
+    if (!confirm("¿Cancelar la compra? Si ya transferiste, escribinos antes por WhatsApp.")) return;
+    b.disabled = true;
+    const { error } = await sb.rpc("mkt_cancelar_compra", { p_token: b.dataset.t });
+    if (error) { toast(esc(error.message)); b.disabled = false; return; }
+    dibujarMiCompra(b.dataset.t);
+  });
+
   /* Hoja con el pedido de la tienda */
   const hoja = document.createElement("div");
   hoja.className = "as-hoja"; hoja.hidden = true;
@@ -344,7 +469,7 @@
     dibujarPedido(); hoja.hidden = false;
     const b = hoja.querySelector("[data-as=cerrar]"); if (b) b.focus();
   }
-  function cerrarPedido() { if (hoja.hidden) return; hoja.hidden = true; hoja.innerHTML = ""; hojaV = null; if (focoHoja && document.body.contains(focoHoja)) focoHoja.focus(); }
+  function cerrarPedido() { if (hoja.hidden) return; hoja.hidden = true; hoja.innerHTML = ""; hojaV = null; compraAbierta = false; if (focoHoja && document.body.contains(focoHoja)) focoHoja.focus(); }
   function dibujarPedido() {
     const v = hojaV; if (!v) return;
     const ls = lineas(v), total = ls.reduce((a, l) => a + l.sub, 0), u = ls.reduce((a, l) => a + l.q, 0);
@@ -375,12 +500,29 @@
     </div>`;
   }
   hoja.addEventListener("input", () => {
-    if (!hojaV) return;
+    if (!hojaV || compraAbierta) return;
     const t = mensaje(hojaV), pre = $("#asMsg"), a = $("#asEnviar");
     if (pre) pre.textContent = t;
     if (a) a.href = `https://wa.me/${hojaV.whatsapp}?text=` + encodeURIComponent(t);
   });
   hoja.addEventListener("click", e => {
+    if (!compraAbierta) return;
+    if (e.target === hoja) { cerrarPedido(); return; }
+    const b = e.target.closest("[data-as]"); if (!b) return;
+    if (b.dataset.as === "cerrar") { cerrarPedido(); return; }
+    if (b.dataset.as === "confirmar") { confirmarCompra(); return; }
+    const li = b.closest(".it"); if (!li) return;
+    const v = D.porSlug.get(li.dataset.slug), id = li.dataset.id; if (!v) return;
+    const q = (pedidos[v.slug] || {})[id] || 0;
+    if (b.dataset.as === "cinc") setQ(v, id, q + 1);
+    if (b.dataset.as === "cdec") setQ(v, id, q - 1);
+    if (b.dataset.as === "crm") setQ(v, id, 0);
+    dibujarHojaCompra(); redibujar();
+    const again = hoja.querySelector(`.it[data-id="${CSS.escape(id)}"] [data-as="${b.dataset.as}"]`);
+    (again && !again.disabled ? again : hoja.querySelector("[data-as=cerrar]")).focus();
+  });
+  hoja.addEventListener("click", e => {
+    if (compraAbierta) return;
     if (e.target === hoja) { cerrarPedido(); return; }
     const b = e.target.closest("[data-as]"); if (!b) return;
     const v = hojaV; if (!v) return;
@@ -395,7 +537,7 @@
     (again && !again.disabled ? again : hoja.querySelector("[data-as=cerrar]")).focus();
   });
   hoja.addEventListener("click", e => {
-    if (!e.target.closest("#asEnviar")) return;
+    if (compraAbierta || !e.target.closest("#asEnviar")) return;
     const s = $("#asEstado");
     if (s) { s.textContent = `Se abrió WhatsApp con tu pedido para ${hojaV.nombre}. Enviá el mensaje desde WhatsApp para que te responda.`; s.hidden = false; }
   });
@@ -412,6 +554,7 @@
   function mostrar(r, nuevo) {
     const v = r.slug ? D.porSlug.get(r.slug) : null;
     if (r.vender) dibujarFormulario();
+    else if (r.compra !== undefined) dibujarMiCompra(r.compra);
     else if (!r.slug) dibujarTodas();
     else if (!v) pag.innerHTML = barra("Tiendas asociadas") + `<div class="f-wrap"><div class="state"><b>Esta tienda no está disponible.</b>Puede que ya no esté publicada.<br><a class="cta" href="#tiendas">Ver las tiendas asociadas</a></div></div>`;
     else if (r.codigo) {
@@ -429,7 +572,7 @@
     const r = leerRuta();
     if (!r) { ocultar(); return; }
     if (!D.listo) return;   // se muestra al terminar de cargar
-    const nuevo = !ruta || ruta.slug !== r.slug || ruta.codigo !== r.codigo || !!ruta.vender !== !!r.vender;
+    const nuevo = !ruta || ruta.slug !== r.slug || ruta.codigo !== r.codigo || !!ruta.vender !== !!r.vender || ruta.compra !== r.compra;
     if (nuevo) { qFicha = 1; fotoI = 0; if (!ruta || ruta.slug !== r.slug) filtroTienda.texto = ""; }
     if (pag.hidden) { const a = document.activeElement; foco = a && a !== document.body ? a : null; }
     ruta = r;
@@ -452,7 +595,7 @@
   function volver() {
     if (desdeTienda && history.length > 1) { history.back(); return; }
     const r = ruta || {};
-    if (r.vender) { history.replaceState(null, "", location.pathname + location.search + "#asociadas"); ocultar(); }
+    if (r.vender || r.compra !== undefined) { history.replaceState(null, "", location.pathname + location.search + "#asociadas"); ocultar(); }
     else if (r.codigo) location.hash = "#tiendas/" + r.slug;
     else if (r.slug) location.hash = "#tiendas";
     else { history.replaceState(null, "", location.pathname + location.search + "#asociadas"); ocultar(); }
@@ -481,6 +624,7 @@
     const a = b.dataset.as;
     if (a === "volver") { volver(); return; }
     if (a === "cat") { catSel = b.dataset.c || ""; mostrar(ruta, false); const f = pag.querySelector(`[data-as="cat"][data-c="${CSS.escape(catSel)}"]`); if (f) f.focus({ preventScroll: true }); return; }
+    if (a === "pedido" && D.compras) { abrirCompra(); return; }
     if (a === "pedido" && v) { abrirPedido(v); return; }
     if (!v) return;
     if (a === "foto") {
@@ -496,7 +640,7 @@
         const antes = (pedidos[v.slug] || {})[p.id] || 0, nuevo = Math.min(MAX, antes + qFicha);
         if (nuevo === antes) { toast("Llegaste al máximo de " + MAX + " unidades."); return; }
         setQ(v, p.id, nuevo); qFicha = 1;
-        toast(`<b>Agregado al pedido a ${esc(v.nombre)}:</b> ${nuevo - antes} × ${esc(p.nombre)}`);
+        toast(D.compras ? `<b>Agregado a tu compra:</b> ${nuevo - antes} × ${esc(p.nombre)} (${esc(v.nombre)})` : `<b>Agregado al pedido a ${esc(v.nombre)}:</b> ${nuevo - antes} × ${esc(p.nombre)}`);
       }
       redibujar();
       const again = pag.querySelector(`[data-as="${a}"]`); if (again && !again.disabled) again.focus({ preventScroll: true });
@@ -511,7 +655,7 @@
       const antes = (pedidos[v.slug] || {})[p.id] || 0, nuevo = Math.min(MAX, antes + q);
       if (nuevo === antes) { toast("Llegaste al máximo de " + MAX + " unidades."); return; }
       setQ(v, p.id, nuevo); qCard.set(p.id, 1);
-      toast(`<b>Agregado al pedido a ${esc(v.nombre)}:</b> ${nuevo - antes} × ${esc(p.nombre)}`);
+      toast(D.compras ? `<b>Agregado a tu compra:</b> ${nuevo - antes} × ${esc(p.nombre)} (${esc(v.nombre)})` : `<b>Agregado al pedido a ${esc(v.nombre)}:</b> ${nuevo - antes} × ${esc(p.nombre)}`);
     }
     redibujar();
     const again = pag.querySelector(`.card[data-id="${CSS.escape(p.id)}"] [data-as="${a}"]`);

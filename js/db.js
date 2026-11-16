@@ -828,6 +828,14 @@ async function addManualCashMovement(tipo, monto, descripcion) {
   return mov;
 }
 
+/* Marketplace (migración 009): la cuenta «Vendedores asociados» (tipo terceros) guarda dinero que NO es de
+   ELDOSTORE. Solo el administrador recibe sus movimientos (la base se los oculta a los demás usuarios).
+   «Caja propia» la excluye; «Dinero físico total» la incluye y lo aclara. */
+function esCuentaTerceros(accountId) { const a = CUENTAS.accounts.find(x => x.id === accountId); return !!(a && a.tipo === 'terceros'); }
+function hayCuentaTerceros() { return CUENTAS.accounts.some(a => a.tipo === 'terceros'); }
+function cajaPropia() { return cashBalance(m => !esCuentaTerceros(m.accountId)); }
+function dineroVendedores() { return cashBalance(m => esCuentaTerceros(m.accountId)); }
+
 function cashBalance(filtro) {
   const lista = filtro ? DB.cashMovements.filter(filtro) : DB.cashMovements;
   return round2(lista.reduce((a, m) => a + (m.tipo === 'ingreso' ? m.monto : -m.monto), 0));
@@ -1013,7 +1021,7 @@ function dashboardData() {
     gananciaMes: round2(ventasMes.reduce((a, v) => a + v.ganancia, 0)),
     comisionesMes: round2(ventasMes.reduce((a, v) => a + v.comisionTotal, 0)),
     gastosMes: round2(gastosMes.reduce((a, g) => a + g.importe, 0)),
-    caja: cashBalance(),
+    caja: cajaPropia(),   // sin el dinero de vendedores (Marketplace); igual que antes si no hay cuenta de terceros
     pedidosPendientes: DB.orders.filter(o => !['Entregado', 'Cancelado'].includes(o.estado)).length,
     productosBajoStock: findProducts({ soloBajoStock: true }),
     ventasPorDia: last7DaysSeries()

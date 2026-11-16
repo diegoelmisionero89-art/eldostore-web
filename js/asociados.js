@@ -52,6 +52,11 @@ async function cargarAsociados() {
     MKT.solicitudes = d.solicitudes || [];
     MKT.categorias = d.categorias || [];
     MKT.cuentas = d.cuentas || [];
+    // Migración 009 (Etapa D): compras, pagos y liquidaciones. Solo el administrador recibe datos.
+    MKT.etapaD = 'compras' in d;
+    MKT.compras = (d.compras || []).map(c => Object.assign(c, { total: Number(c.total), total_propio: Number(c.total_propio), total_vendedores: Number(c.total_vendedores),
+      pedidos: (c.pedidos || []).map(p => Object.assign(p, { subtotal: Number(p.subtotal), comision: Number(p.comision), monto_vendedor: Number(p.monto_vendedor) })) }));
+    MKT.liquidaciones = (d.liquidaciones || []).map(l => Object.assign(l, { monto_vendedor: Number(l.monto_vendedor), comision: Number(l.comision) }));
     for (const v of MKT.vendedores) if (!v.estado) v.estado = v.activo ? 'activo' : 'pendiente';
   } catch (e) {
     MKT.disponible = false;
@@ -107,6 +112,10 @@ function renderAsociados() {
   if (MKT.etapaC && MKT.esAdmin) tabs.push(['solicitudes', `Solicitudes${nuevas ? ` · ${nuevas} nueva${nuevas === 1 ? '' : 's'}` : ''}`]);
   tabs.push(['vendedores', `Vendedores (${MKT.vendedores.length})`], ['productos', `Productos${pend ? ` · ${pend} por aprobar` : ''}`]);
   if (MKT.etapaC) tabs.push(['categorias', `Categorías (${MKT.categorias.length})`]);
+  if (MKT.etapaD && MKT.esAdmin) {
+    const porPagar = MKT.compras.filter(c => c.estado === 'pendiente_pago').length;
+    tabs.push(['compras', `Compras${porPagar ? ` · ${porPagar} sin pagar` : ''}`], ['liquidaciones', 'Liquidaciones']);
+  }
   if (MKT.esAdmin) tabs.push(['ventas', 'Ventas y comisiones']);   // información financiera: solo el administrador
   if (!tabs.some(([k]) => k === mktTab)) mktTab = 'vendedores';
   const aviso = MKT.esAdmin ? '' : '<div class="notice">Solo el administrador puede hacer cambios. Vos podés ver la información.</div>';
@@ -115,7 +124,8 @@ function renderAsociados() {
   el.innerHTML = `<div class="tabs" role="tablist">${tabs.map(([k, t]) =>
       `<button type="button" role="tab" class="tab${mktTab === k ? ' on' : ''}" aria-selected="${mktTab === k}" onclick="mktTab='${k}';renderAsociados()">${t}</button>`).join('')}</div>`
     + aviso + estadoGeneral + ({ marketplace: htmlMarketplaceMkt, solicitudes: htmlSolicitudesMkt, vendedores: htmlVendedoresMkt,
-        productos: htmlProductosMkt, categorias: htmlCategoriasMkt, ventas: htmlVentasMkt }[mktTab])();
+        productos: htmlProductosMkt, categorias: htmlCategoriasMkt, ventas: htmlVentasMkt,
+        compras: htmlComprasMkt, liquidaciones: htmlLiquidacionesMkt }[mktTab])();
 }
 
 /* ----------------------------- Vendedores -------------------------------- */
@@ -142,7 +152,7 @@ function htmlVendedoresMkt() {
       return `<div class="promo-item${v.activo ? '' : ' off'}">
         ${v.logo_url ? `<img src="${esc(v.logo_url)}" alt="" class="promo-thumb" loading="lazy">` : '<span class="promo-thumb vacio">Sin logo</span>'}
         <div class="promo-meta"><strong>${esc(v.nombre)} ${estado}</strong>
-          <small>WhatsApp ${esc(waVisible(v.whatsapp))}${v.localidad ? ' · ' + esc(v.localidad) : ''} · ${pct}</small>
+          <small>WhatsApp ${esc(waVisible(v.whatsapp))}${v.localidad ? ' · ' + esc(v.localidad) : ''}${MKT.esAdmin ? ' · ' + pct : ''}</small>
           <small>${pub} producto${pub === 1 ? '' : 's'} publicado${pub === 1 ? '' : 's'}${pend ? ` · ${pend} por aprobar` : ''} · ${prods.length} en total${MKT.etapaC && MKT.esAdmin ? ` · ${cuentas.length ? cuentas.length + ' cuenta' + (cuentas.length === 1 ? '' : 's') + ' de acceso' : 'sin cuenta de acceso'}` : ''}</small>
           ${v.motivo_estado && v.estado !== 'activo' ? `<small>Motivo: ${esc(v.motivo_estado)}</small>` : ''}</div>
         <div class="promo-acc">
@@ -415,7 +425,8 @@ async function confirmarMotivoMkt(obligatorio) {
 /* ---- Interruptor y configuración general ---- */
 function htmlMarketplaceMkt() {
   const c = MKT.config;
-  return `<div class="panel">
+  if (MKT.etapaD) setTimeout(dibujarFinanzasMkt, 0);
+  return `${MKT.etapaD ? '<div id="mktFinanzas"><p class="muted-sm">Calculando el dinero del Marketplace…</p></div>' : ''}<div class="panel">
     <h3>Interruptor del Marketplace</h3>
     <p style="font-size:1.05rem;margin:8px 0">${c.activo ? '<span class="badge badge-ok">ENCENDIDO</span> La tienda muestra las tiendas asociadas activas y el formulario «Quiero vender».'
       : '<span class="badge badge-pend">APAGADO</span> La tienda pública funciona exactamente como siempre: no se ve nada del Marketplace.'}</p>
@@ -578,6 +589,169 @@ async function desvincularCuentaMkt(userId) {
   if (!confirm(`¿Desvincular ${c.email}? Deja de poder ver la tienda en el portal.`)) return;
   try { await rpcMkt('mkt_desvincular_cuenta', { p_user_id: userId }); abrirCuentasMkt(c.vendedor_id); renderAsociados(); showToast('Cuenta desvinculada.'); }
   catch (e) { showError(e); }
+}
+
+
+/* ===================== Marketplace · Etapa D (migración 009) =====================
+   Compras, pagos MANUALES (solo pago completo, «pago registrado»), entregas, liquidaciones y
+   la separación del dinero: caja propia / dinero de vendedores / dinero físico total.
+   Todo lo calcula y valida la base; acá solo se muestra y se piden los datos. */
+const ESTADOS_COMPRA = { pendiente_pago: 'Sin pagar', pago_registrado: 'Pago registrado', pago_acreditado: 'Pago acreditado',
+  cancelada: 'Cancelada', vencida: 'Vencida', anulada: 'Anulada' };
+const BADGE_COMPRA = { pendiente_pago: 'badge-pend', pago_registrado: 'badge-ok', pago_acreditado: 'badge-ok', cancelada: 'badge-info', vencida: 'badge-info', anulada: 'badge-warn' };
+const ENTREGAS_MKT = { pendiente: 'Pendiente', preparando: 'En preparación', entregado: 'Entregado', cancelado: 'Cancelado' };
+let mktCompraFiltro = 'pendiente_pago';
+
+async function finanzasMkt() { return await rpcCuentas('mkt_finanzas', { p_desde: null, p_hasta: null }); }
+async function dibujarFinanzasMkt() {
+  const el = document.getElementById('mktFinanzas'); if (!el) return;
+  let f;
+  try { f = await finanzasMkt(); } catch (e) { el.innerHTML = `<div class="notice">${esc(e.message)}</div>`; return; }
+  const n = x => Number(x || 0);
+  el.innerHTML = `<div class="panel">
+    <h3>Dinero: propio y de vendedores</h3>
+    <div class="grid grid-3" style="margin-bottom:10px">
+      ${kpiBox('Caja propia', fmt(n(f.cajaPropia)), 'ELDOSTORE + Niko + Ayelen', 'gold')}
+      ${kpiBox('Dinero de vendedores', fmt(n(f.dineroVendedores)), `no es de ELDOSTORE · ${fmt(n(f.aPagarVendedores))} a pagar + ${fmt(n(f.comisionesNoGanadas))} de comisiones todavía no ganadas`, '')}
+      ${kpiBox('Dinero físico total', fmt(n(f.fisicoTotal)), 'para contar la caja (propio + vendedores)', '')}
+    </div>
+    ${f.conciliacion && f.conciliacion.ok ? '<p class="muted-sm">✔ Conciliación: el dinero de vendedores coincide con los pedidos pagados sin liquidar.</p>'
+      : `<div class="notice" style="border-color:var(--red)"><b>Atención:</b> el dinero de vendedores (${fmt(n(f.conciliacion && f.conciliacion.real))}) no coincide con lo esperado (${fmt(n(f.conciliacion && f.conciliacion.esperado))}). Revisá antes de liquidar.</div>`}
+    <div class="table-wrap"><table><thead><tr><th>Quién tiene el dinero</th><th>Propio</th><th>De vendedores</th><th>Total físico</th></tr></thead>
+      <tbody>${(f.porCustodio || []).map(h => `<tr><td>${esc(h.nombre)}</td><td>${fmt(n(h.propio))}</td><td>${fmt(n(h.vendedores))}</td><td>${fmt(n(h.propio) + n(h.vendedores))}</td></tr>`).join('')}</tbody></table></div>
+    <div class="grid grid-4" style="margin-top:12px">
+      ${kpiBox('Comisiones generadas', fmt(n(f.periodo.comisionesGeneradas)), 'de compras con pago registrado', 'gold')}
+      ${kpiBox('Comisiones cobradas', fmt(n(f.periodo.comisionesCobradas)), 'pasaron a ELDOSTORE al liquidar', 'green')}
+      ${kpiBox('Comisiones pendientes', fmt(n(f.periodo.comisionesPendientes)), 'se cobran al liquidar', n(f.periodo.comisionesPendientes) ? 'red' : '')}
+      ${kpiBox('Vendido por las tiendas', fmt(n(f.periodo.ventasVendedores)), 'no es ingreso de ELDOSTORE', '')}
+    </div></div>`;
+}
+
+function htmlComprasMkt() {
+  const lista = MKT.compras.filter(c => !mktCompraFiltro || c.estado === mktCompraFiltro);
+  return `<div class="panel">
+    <div class="toolbar"><h3 style="margin:0">Compras del Marketplace</h3><div class="spacer"></div>
+      <select onchange="mktCompraFiltro=this.value;renderAsociados()" aria-label="Estado"><option value="">Todas</option>
+        ${Object.entries(ESTADOS_COMPRA).map(([k, t]) => `<option value="${k}" ${mktCompraFiltro === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+    <p class="muted-sm">Registrá el pago recién cuando veas el dinero (pago <b>completo</b>). Al registrarlo: la parte de ELDOSTORE se guarda como venta normal, el stock se descuenta y la parte de las tiendas va a <b>Dinero de vendedores</b> (no es de ELDOSTORE).</p>
+    <div class="promo-list">${lista.length ? lista.map(c => `<div class="promo-item${['cancelada', 'vencida', 'anulada'].includes(c.estado) ? ' off' : ''}">
+      <div class="promo-meta"><strong>${esc(c.numero)} · ${fmt(c.total)} <span class="badge ${BADGE_COMPRA[c.estado]}">${ESTADOS_COMPRA[c.estado]}</span></strong>
+        <small>${esc(c.cliente_nombre)} · WhatsApp <a href="https://wa.me/${esc(c.cliente_whatsapp)}" target="_blank" rel="noopener">${esc(waVisible(c.cliente_whatsapp))}</a>${c.cliente_zona ? ' · ' + esc(c.cliente_zona) : ''} · ${fmtDate(c.creada)}</small>
+        <small>ELDOSTORE ${fmt(c.total_propio)} · tiendas ${fmt(c.total_vendedores)}${c.estado === 'pendiente_pago' ? ' · vence ' + fmtDate(c.vence) : ''}${c.pago ? ` · ${esc(c.pago.medio)}${c.pago.referencia ? ' «' + esc(c.pago.referencia) + '»' : ''}` : ''}</small>
+        ${c.motivo ? `<small>Motivo: ${esc(c.motivo)}</small>` : ''}
+        ${(c.pedidos || []).map(pe => `<small>${esc(pe.numero)} · <b>${esc(pe.vendedor_nombre)}</b> · ${fmt(pe.subtotal)}${pe.vendedor_id ? ` (comisión ${fmt(pe.comision)}, para la tienda ${fmt(pe.monto_vendedor)})` : ''}
+          · ${(pe.items || []).map(i => `${i.cantidad}× ${esc(i.nombre)}`).join(', ')}
+          ${c.estado === 'pago_registrado' && pe.vendedor_id ? (pe.liquidacion_id ? ' · <span class="badge badge-ok">Liquidado</span>'
+            : ` · <select aria-label="Entrega de ${esc(pe.numero)}" onchange="entregaMkt('${pe.id}', this.value)">${Object.entries(ENTREGAS_MKT).filter(([k]) => k !== 'cancelado').map(([k, t]) => `<option value="${k}" ${pe.estado_entrega === k ? 'selected' : ''}>${t}</option>`).join('')}</select>`)
+            : pe.vendedor_id ? ' · ' + ENTREGAS_MKT[pe.estado_entrega] : ''}</small>`).join('')}</div>
+      <div class="promo-acc">
+        ${['pendiente_pago', 'vencida'].includes(c.estado) ? `<button class="btn btn-sm btn-primary" onclick="abrirPagoMkt('${c.id}')">Registrar pago</button>` : ''}
+        ${['pendiente_pago', 'vencida', 'pago_registrado'].includes(c.estado) ? `<button class="btn btn-sm btn-danger" onclick="anularCompraMkt('${c.id}')">${c.estado === 'pago_registrado' ? 'Anular y devolver' : 'Cancelar'}</button>` : ''}
+      </div></div>`).join('') : '<p class="muted-sm">No hay compras con este filtro.</p>'}</div></div>`;
+}
+function abrirPagoMkt(id) {
+  const c = MKT.compras.find(x => x.id === id); if (!c) return;
+  openModal(`<h3>Registrar pago de ${esc(c.numero)}</h3>
+    <div class="notice">Total a cobrar: <b>${fmt(c.total)}</b> (solo pago completo). ELDOSTORE ${fmt(c.total_propio)} · tiendas ${fmt(c.total_vendedores)}.<br>
+      Queda como <b>pago registrado</b> (manual): no es un pago verificado por Mercado Pago.</div>
+    <div class="two-col">
+      <div class="field"><label>Medio</label><select id="mpg_medio"><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="link_mercadopago">Link de Mercado Pago</option><option value="otro">Otro</option></select></div>
+      <div class="field"><label>Monto recibido</label><input id="mpg_monto" type="number" inputmode="numeric" value="${c.total}"><small>Tiene que ser igual al total.</small></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Referencia / nº de operación</label><input id="mpg_ref" maxlength="120"></div>
+      ${quienSelectMkt('mpg_quien', '¿Quién recibió el dinero?')}
+    </div>
+    <div class="modal-actions"><button class="btn btn-sm" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" id="mpgBtn" onclick="confirmarPagoMkt('${c.id}')">Registrar pago</button></div>`);
+}
+async function confirmarPagoMkt(id) {
+  const c = MKT.compras.find(x => x.id === id); if (!c) return;
+  const monto = Number(document.getElementById('mpg_monto').value);
+  if (monto !== c.total) { showToast(`Solo se aceptan pagos completos: ${fmt(c.total)}.`); return; }
+  const btn = document.getElementById('mpgBtn'); btn.disabled = true; btn.textContent = 'Registrando...';
+  try {
+    await rpcMkt('mkt_registrar_pago', { p_compra: id, p_datos: { medio: document.getElementById('mpg_medio').value, monto,
+      referencia: document.getElementById('mpg_ref').value.trim(), holder_id: document.getElementById('mpg_quien').value } });
+    await refreshCash(); closeModal(); mktCompraFiltro = 'pago_registrado'; renderAsociados();
+    showToast(`Pago de ${c.numero} registrado: venta propia ${fmt(c.total_propio)} y ${fmt(c.total_vendedores)} a «Dinero de vendedores».`);
+  } catch (e) { showError(e); btn.disabled = false; btn.textContent = 'Registrar pago'; }
+}
+function anularCompraMkt(id) {
+  const c = MKT.compras.find(x => x.id === id); if (!c) return;
+  const pagada = c.estado === 'pago_registrado';
+  openModal(`<h3>${pagada ? 'Anular y devolver' : 'Cancelar'} ${esc(c.numero)}</h3>
+    ${pagada ? `<div class="notice">Se anula la venta propia (vuelve el stock y sale el dinero de la caja propia), vuelve el stock de las tiendas y sale de <b>Dinero de vendedores</b> la devolución al cliente. No se borra nada: todo queda con contramovimientos.</div>
+      ${quienSelectMkt('mac_quien', '¿Quién le devuelve el dinero al cliente?')}` : '<p class="muted-sm">La compra no tiene pago: se cancela sin movimientos de dinero ni de stock.</p>'}
+    <div class="field"><label>Motivo</label><input id="mac_motivo" maxlength="200"></div>
+    <div class="modal-actions"><button class="btn btn-sm" onclick="closeModal()">Volver</button>
+      <button class="btn btn-danger btn-sm" id="macBtn" onclick="confirmarAnularCompraMkt('${id}')">${pagada ? 'Anular y devolver' : 'Cancelar compra'}</button></div>`);
+}
+async function confirmarAnularCompraMkt(id) {
+  const motivo = document.getElementById('mac_motivo').value.trim();
+  if (motivo.length < 3) { showToast('Indicá el motivo.'); return; }
+  const q = document.getElementById('mac_quien'), btn = document.getElementById('macBtn'); btn.disabled = true;
+  try { await rpcMkt('mkt_anular_compra', { p_compra: id, p_motivo: motivo, p_holder_id: q ? q.value : null }); await refreshCash(); closeModal(); renderAsociados(); showToast('Compra anulada.'); }
+  catch (e) { showError(e); btn.disabled = false; }
+}
+async function entregaMkt(pedidoId, estado) {
+  try { await rpcMkt('mkt_estado_entrega', { p_pedido: pedidoId, p_estado: estado }); renderAsociados(); showToast('Entrega actualizada: ' + ENTREGAS_MKT[estado] + '.'); }
+  catch (e) { showError(e); renderAsociados(); }
+}
+
+/* ---- Liquidaciones: recién acá la comisión pasa a ELDOSTORE ---- */
+function pedidosLiquidablesMkt() {
+  const soloEntregados = !MKT.config || MKT.config.liquidar_solo_entregados !== false;
+  return MKT.compras.filter(c => c.estado === 'pago_registrado').flatMap(c => (c.pedidos || []).map(pe => Object.assign({}, pe, { compra: c })))
+    .filter(pe => pe.vendedor_id && !pe.liquidacion_id && pe.estado_entrega !== 'cancelado' && (!soloEntregados || pe.estado_entrega === 'entregado'));
+}
+function htmlLiquidacionesMkt() {
+  const pend = pedidosLiquidablesMkt();
+  const porVend = MKT.vendedores.map(v => ({ v, ps: pend.filter(p => p.vendedor_id === v.id) })).filter(x => x.ps.length);
+  return `<div class="panel"><h3>Para liquidar</h3>
+    <p class="muted-sm">Pedidos con pago registrado${MKT.config && MKT.config.liquidar_solo_entregados !== false ? ' y <b>entregados</b>' : ''}, todavía sin pagar a la tienda. Al liquidar se registran por separado el pago a la tienda (sale de Dinero de vendedores) y la comisión, que recién ahí pasa a la caja de ELDOSTORE.</p>
+    ${porVend.length ? porVend.map(({ v, ps }) => `<div class="promo-item"><div class="promo-meta"><strong>${esc(v.nombre)}</strong>
+        ${ps.map(p => `<label class="check-row"><input type="checkbox" class="mkt-liq" data-v="${v.id}" value="${p.id}" checked> ${esc(p.numero)} · ${fmt(p.subtotal)} → tienda ${fmt(p.monto_vendedor)} · comisión ${fmt(p.comision)}</label>`).join('')}
+        <small>Total: para la tienda <b>${fmt(ps.reduce((a, p) => a + p.monto_vendedor, 0))}</b> · comisión ELDOSTORE <b>${fmt(ps.reduce((a, p) => a + p.comision, 0))}</b></small></div>
+      <div class="promo-acc"><button class="btn btn-sm btn-primary" onclick="abrirLiquidacionMkt('${v.id}')">Liquidar</button></div></div>`).join('')
+      : '<p class="muted-sm">No hay pedidos para liquidar.</p>'}</div>
+    <div class="panel"><h3>Liquidaciones registradas</h3>
+    <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Tienda</th><th>Pedidos</th><th>Pagado a la tienda</th><th>Comisión</th><th>Medio</th><th></th></tr></thead>
+      <tbody>${MKT.liquidaciones.length ? MKT.liquidaciones.map(l => `<tr${l.anulada ? ' style="opacity:.55"' : ''}><td>${fmtDate(l.registrada)}</td><td>${esc(l.vendedor)}</td>
+        <td>${(l.pedidos || []).map(esc).join(', ') || '—'}</td><td>${fmt(l.monto_vendedor)}</td><td>${fmt(l.comision)}</td><td>${esc(l.medio)}${l.referencia ? ' «' + esc(l.referencia) + '»' : ''}</td>
+        <td>${l.anulada ? `<span class="badge badge-anulada" title="${esc(l.motivo_anulacion)}">Anulada</span>` : `<button class="btn btn-sm btn-danger" onclick="anularLiquidacionMkt('${l.id}')">Anular</button>`}</td></tr>`).join('')
+        : '<tr><td colspan="7" class="empty-state">Todavía no hay liquidaciones.</td></tr>'}</tbody></table></div></div>`;
+}
+function abrirLiquidacionMkt(vendedorId) {
+  const v = vendedorMkt(vendedorId); if (!v) return;
+  const ids = Array.from(document.querySelectorAll(`.mkt-liq[data-v="${vendedorId}"]:checked`)).map(i => i.value);
+  const ps = pedidosLiquidablesMkt().filter(p => ids.includes(p.id));
+  if (!ps.length) { showToast('Marcá al menos un pedido.'); return; }
+  window.__mktLiq = { vendedorId, ids };
+  openModal(`<h3>Liquidar a ${esc(v.nombre)}</h3>
+    <div class="notice">${ps.length} pedido${ps.length === 1 ? '' : 's'} (${ps.map(p => esc(p.numero)).join(', ')}).<br>
+      Pagás a la tienda <b>${fmt(ps.reduce((a, p) => a + p.monto_vendedor, 0))}</b> y pasan a la caja de ELDOSTORE <b>${fmt(ps.reduce((a, p) => a + p.comision, 0))}</b> de comisión.</div>
+    <div class="two-col">
+      <div class="field"><label>Cómo se le paga</label><select id="mlq_medio"><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="otro">Otro</option></select></div>
+      ${quienSelectMkt('mlq_quien', '¿Quién le paga?')}
+    </div>
+    <div class="field"><label>Referencia (opcional)</label><input id="mlq_ref" maxlength="120"></div>
+    <div class="modal-actions"><button class="btn btn-sm" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" id="mlqBtn" onclick="confirmarLiquidacionMkt()">Registrar liquidación</button></div>`);
+}
+async function confirmarLiquidacionMkt() {
+  const { vendedorId, ids } = window.__mktLiq || {}; if (!vendedorId) return;
+  const btn = document.getElementById('mlqBtn'); btn.disabled = true;
+  try {
+    const r = await rpcMkt('mkt_registrar_liquidacion', { p_vendedor: vendedorId, p_pedidos: ids, p_datos: {
+      medio: document.getElementById('mlq_medio').value, referencia: document.getElementById('mlq_ref').value.trim(), holder_id: document.getElementById('mlq_quien').value } });
+    await refreshCash(); closeModal(); renderAsociados();
+    showToast(`Liquidación registrada: ${fmt(r.montoVendedor)} a la tienda y ${fmt(r.comision)} de comisión a ELDOSTORE.`);
+  } catch (e) { showError(e); btn.disabled = false; }
+}
+function anularLiquidacionMkt(id) {
+  pedirMotivoMkt('Anular liquidación', 'Se registran contramovimientos: el pago a la tienda y la comisión vuelven a «Dinero de vendedores». No se borra nada.', 'Anular',
+    async m => { await rpcMkt('mkt_anular_liquidacion', { p_liq: id, p_motivo: m }); await refreshCash(); showToast('Liquidación anulada.'); }, true);
 }
 
 /* ------------------------- Ventas y comisiones --------------------------- */
