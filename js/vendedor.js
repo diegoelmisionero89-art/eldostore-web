@@ -45,7 +45,7 @@
     $("#vpSalir").classList.add("vp-hidden");
     main.innerHTML = `<div class="vp-card">
       <h1>Ingresá a tu tienda</h1>
-      <p class="vp-muted">Para vendedores asociados a ELDOSTORE. La cuenta te la crea ELDOSTORE por invitación: revisá tu email.</p>
+      <p class="vp-muted">Para vendedores asociados a ELDOSTORE. La cuenta te la crea ELDOSTORE: te manda por WhatsApp un enlace para elegir tu contraseña.</p>
       ${msg ? `<p class="vp-msg err" role="alert">${esc(msg)}</p>` : ""}
       <form class="vp-form" id="vpLogin">
         <label for="vpEmail">Email<input id="vpEmail" type="email" autocomplete="username" required></label>
