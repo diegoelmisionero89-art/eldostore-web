@@ -141,8 +141,12 @@
       </section>`;
   }
 
+  // Enlace vencido o ya usado: Supabase vuelve con #error=…&error_code=otp_expired (u otro). Mensaje claro y sin datos en la dirección.
+  const errorEnlace = /error_code=|[#&]error=/.test(location.hash);
+  if (errorEnlace) history.replaceState(null, "", location.pathname);
   async function iniciar(aviso) {
     const { data: s } = await sb.auth.getSession();
+    if (errorEnlace && !s.session) { pantallaIngreso("El enlace venció o ya se usó. Pedile a ELDOSTORE uno nuevo."); return; }
     if (!s.session) { pantallaIngreso(); return; }
     if (vieneDeInvitacion && !aviso) { pantallaContrasena(); return; }
     $("#vpSalir").classList.remove("vp-hidden");

@@ -28,7 +28,7 @@
   "use strict";
   // Enlace de invitación (o de nueva contraseña) de Supabase: llega a la portada con la sesión en la
   // dirección. Se pasa al portal de vendedores, que pide elegir la contraseña.
-  if (/access_token=/.test(location.hash) && /type=(invite|recovery)/.test(location.hash)) {
+  if ((/access_token=/.test(location.hash) && /type=(invite|recovery)/.test(location.hash)) || /error_code=(otp_expired|access_denied)|error=access_denied/.test(location.hash)) {
     location.replace("vendedor.html" + location.hash);
     return;
   }

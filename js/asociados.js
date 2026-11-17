@@ -619,33 +619,66 @@ function abrirCuentasMkt(id) {
     <p class="muted-sm">Con su cuenta, el vendedor entra a <b>vendedor.html</b> y ve SOLO su tienda, sus productos y sus pedidos. No puede modificar nada ni entrar a este panel.</p>
     ${cuentas.length ? `<div class="promo-list">${cuentas.map(c => `<div class="promo-item${c.activo ? '' : ' off'}"><div class="promo-meta"><strong>${esc(c.email)} ${c.activo ? '<span class="badge badge-ok">Activa</span>' : '<span class="badge badge-pend">Desactivada</span>'}</strong>
         <small>Vinculada el ${fmtDate(c.creado)}</small></div>
-      <div class="promo-acc"><button class="btn btn-sm" onclick="activarCuentaMkt('${c.user_id}', ${!c.activo})">${c.activo ? 'Desactivar' : 'Reactivar'}</button>
+      <div class="promo-acc">${c.activo ? `<button class="btn btn-sm" onclick="invitarCuentaMkt('${id}', '${esc(c.email)}')" title="Para que elija (o vuelva a elegir) su contraseña">Nuevo enlace</button>` : ''}
+        <button class="btn btn-sm" onclick="activarCuentaMkt('${c.user_id}', ${!c.activo})">${c.activo ? 'Desactivar' : 'Reactivar'}</button>
         <button class="btn btn-sm btn-danger" onclick="desvincularCuentaMkt('${c.user_id}')">Desvincular</button></div></div>`).join('')}</div>` : '<p class="muted-sm">Todavía no tiene cuenta de acceso.</p>'}
-    <div class="notice">Escribí el email del vendedor y tocá <b>Invitar y vincular</b>: le llega un correo para crear su contraseña y la cuenta queda vinculada a esta tienda.
-      Si la cuenta ya existe, usá <b>Solo vincular</b>.<br>
+    <div id="muEnlace"></div>
+    <div class="notice">Escribí el email del vendedor y tocá <b>Crear enlace de invitación</b>. No se manda ningún correo: el panel te da un enlace
+      para <b>copiar</b> o <b>enviar por WhatsApp</b> al vendedor. Con ese enlace crea su contraseña y su cuenta queda vinculada SOLO a esta tienda.
+      El enlace sirve una sola vez y vence; si venció, generá uno nuevo.<br>
       Una cuenta del panel (Diego, Niko u otro usuario habilitado) no se puede vincular, y una cuenta de vendedor nunca puede habilitarse en el panel.</div>
     <div class="field"><label>Email del vendedor</label><input id="mu_email" type="email" maxlength="120" autocomplete="off"></div>
     <div class="modal-actions"><button class="btn btn-sm" onclick="closeModal()">Cerrar</button>
       <button class="btn btn-sm" id="muBtn" onclick="vincularCuentaMkt('${id}')">Solo vincular</button>
-      <button class="btn btn-primary btn-sm" id="muInv" onclick="invitarCuentaMkt('${id}')">Invitar y vincular</button></div>`);
+      <button class="btn btn-primary btn-sm" id="muInv" onclick="invitarCuentaMkt('${id}')">Crear enlace de invitación</button></div>`);
 }
-/* Invitación automática (función de Supabase «mkt-invitar-vendedor», migración 011): envía el correo y vincula. */
-async function invitarCuentaMkt(vendedorId) {
-  const correo = document.getElementById('mu_email').value.trim();
+/* Enlace de invitación (función de Supabase «mkt-invitar-vendedor», v2): NO envía correos. Genera un enlace de un solo
+   uso para que el vendedor cree su contraseña, deja la cuenta vinculada a ESTA tienda y el panel lo muestra para copiar
+   o mandar por WhatsApp. El enlace no se guarda en ningún lado: si se pierde, se genera otro. */
+let mktUltimoEnlace = null;
+async function invitarCuentaMkt(vendedorId, emailExistente) {
+  const campo = document.getElementById('mu_email');
+  const correo = (emailExistente || (campo ? campo.value : '')).trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { showToast('Escribí un email válido.'); return; }
-  const btn = document.getElementById('muInv'); btn.disabled = true; btn.textContent = 'Invitando...';
+  const btn = document.getElementById('muInv'); if (btn) { btn.disabled = true; btn.textContent = 'Creando enlace...'; }
   try {
     const { data, error } = await sb.functions.invoke('mkt-invitar-vendedor', { body: { email: correo, vendedor_id: vendedorId, sitio: new URL('.', location.href).href } });
     let msg = data && data.error;
     if (error && !msg) { try { msg = (await error.context.json()).error; } catch (_) { msg = ''; } }
-    if (error || !data || !data.ok) {
+    if (error || !data || !data.ok || !data.enlace) {
       if (!msg && error && /Failed to send|Not Found|404|FunctionsFetchError|FunctionsRelayError/i.test(String(error.name || '') + ' ' + String(error.message || '')))
-        msg = 'La invitación automática todavía no está instalada en Supabase (función «mkt-invitar-vendedor»).';
-      throw new Error(msg || 'No se pudo invitar al vendedor.');
+        msg = 'La invitación todavía no está instalada en Supabase (función «mkt-invitar-vendedor»).';
+      throw new Error(msg || 'No se pudo crear el enlace de invitación.');
     }
-    await cargarAsociados(); abrirCuentasMkt(vendedorId); renderAsociados();
-    showToast(data.invitada ? `Invitación enviada a ${correo} y cuenta vinculada.` : `${correo} ya tenía cuenta: quedó vinculada.`);
-  } catch (e) { showError(e); btn.disabled = false; btn.textContent = 'Invitar y vincular'; }
+    await cargarAsociados(); renderAsociados(); abrirCuentasMkt(vendedorId);
+    mostrarEnlaceInvitacionMkt(vendedorId, correo, data);
+  } catch (e) { showError(e); if (btn) { btn.disabled = false; btn.textContent = 'Crear enlace de invitación'; } }
+}
+function mensajeInvitacionMkt(v, data) {
+  return `Hola ${v.nombre}, soy Diego de ELDOSTORE.\n`
+    + `Este es tu acceso al portal de vendedores de ELDOSTORE, donde vas a ver tu tienda, tus productos y tus pedidos.\n\n`
+    + `1. Abrí este enlace: ${data.enlace}\n`
+    + `2. Elegí tu contraseña (mínimo 8 caracteres).\n`
+    + `3. Después entrás siempre desde ${new URL('vendedor.html', location.href).href} con tu email y esa contraseña.\n\n`
+    + `El enlace es personal, sirve una sola vez y vence pronto: no lo compartas. Si venció, avisame y te mando otro.`;
+}
+function mostrarEnlaceInvitacionMkt(vendedorId, correo, data) {
+  const v = vendedorMkt(vendedorId); const caja = document.getElementById('muEnlace'); if (!v || !caja) return;
+  mktUltimoEnlace = { vendedorId, correo, data };
+  const wa = String(v.whatsapp || '').replace(/\D/g, '');
+  caja.innerHTML = `<div class="notice" role="status"><b>${data.cuentaNueva ? 'Enlace de invitación listo' : 'Enlace para elegir contraseña listo'}</b> · ${esc(correo)} quedó vinculada a <b>${esc(v.nombre)}</b>.<br>
+      Mandale el enlace solo a esa persona. Sirve una sola vez y vence (si pasa, generá uno nuevo).
+      <div class="field"><label>Enlace</label><input id="muLink" type="text" readonly value="${esc(data.enlace)}" onclick="this.select()"></div>
+      <div class="modal-actions" style="justify-content:flex-start">
+        <button class="btn btn-sm" onclick="copiarEnlaceInvitacionMkt()">Copiar enlace</button>
+        ${/^\d{10,15}$/.test(wa) ? `<a class="btn btn-sm btn-wa" href="https://wa.me/${wa}?text=${encodeURIComponent(mensajeInvitacionMkt(v, data))}" target="_blank" rel="noopener">Enviar por WhatsApp a ${esc(v.nombre)}</a>` : '<span class="muted-sm">La tienda no tiene WhatsApp cargado: copiá el enlace.</span>'}
+      </div></div>`;
+}
+async function copiarEnlaceInvitacionMkt() {
+  if (!mktUltimoEnlace) return;
+  const ok = await copiarTextoMkt(mktUltimoEnlace.data.enlace);
+  if (!ok) { const i = document.getElementById('muLink'); if (i) i.select(); }
+  showToast(ok ? 'Enlace copiado. Pegalo solo en el chat con el vendedor.' : 'Seleccioná el enlace y copialo.');
 }
 async function vincularCuentaMkt(vendedorId, email, activo = true) {
   const correo = email || document.getElementById('mu_email').value.trim();
