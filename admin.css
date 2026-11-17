@@ -27,6 +27,7 @@ button,input,select,textarea{font-family:inherit;font-size:1rem;color:inherit}
   border-radius:10px;font-weight:700;border:1px solid var(--gold);cursor:pointer;transition:.15s;
   background:transparent;color:var(--gold)}
 .btn:hover{transform:translateY(-1px)}
+.btn:disabled,.btn[disabled]{opacity:.42;filter:grayscale(1);cursor:not-allowed;transform:none;box-shadow:none}
 .btn-primary{background:var(--gold);color:#111;border-color:var(--gold)}
 .btn-primary:hover{background:var(--gold2)}
 .btn-danger{border-color:var(--red);color:var(--red)}

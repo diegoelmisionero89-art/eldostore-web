@@ -28,7 +28,7 @@ function listaCategorias(actual) {
   return base;
 }
 
-function fmt(n) { return '$' + Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 }); }
+function fmt(n) { return '$' + Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }   // siempre dos decimales
 /* Escapa texto para mostrarlo dentro de HTML (nombres, motivos, notas). */
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmtDate(iso) { return new Date(iso).toLocaleDateString('es-AR') + ' ' + new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }); }
@@ -94,7 +94,7 @@ async function boot() {
   }
   document.body.classList.toggle('modo-cuentas', modoCuentas());
   document.body.classList.toggle('modo-promos', PROMOS.disponible);
-  document.body.classList.toggle('modo-asociados', typeof MKT !== 'undefined' && MKT.disponible);   // migración 006
+  document.body.classList.toggle('modo-asociados', typeof MKT !== 'undefined' && MKT.disponible && MKT.esAdmin);   // solo el administrador principal
   mostrarAvisosDeLectura();
 
   document.querySelectorAll('.nav-item').forEach(item => {

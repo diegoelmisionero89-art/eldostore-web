@@ -37,6 +37,16 @@ const MKT_MAX_FOTOS = 10;
 
 /* ------------------------------- Datos ---------------------------------- */
 async function cargarAsociados() {
+  // «Tiendas asociadas» es SOLO para el administrador principal (decisión de Diego, 16/11/2026): a los demás
+  // usuarios del panel no se les pide ni se les muestra nada de vendedores (datos, WhatsApp, notas ni productos).
+  // Solo reciben las reservas de stock de los productos PROPIOS, para no vender lo que ya apartó una compra.
+  if (typeof soyAdministrador === 'function' && !soyAdministrador()) {
+    Object.assign(MKT, { disponible: false, esAdmin: false, etapaC: false, etapaD: false, vendedores: [], productos: [], ventas: [],
+      config: null, solicitudes: [], categorias: [], cuentas: [], compras: [], liquidaciones: [], reservas: new Map() });
+    try { for (const x of (await rpcCuentas('mkt_reservas_stock', {})) || []) MKT.reservas.set(x.productoId, { unidades: Number(x.unidades), compras: x.compras || [] }); }
+    catch (e) { if (!funcionInexistente(e)) console.warn('No se pudieron leer las reservas del Marketplace:', e); }
+    return MKT;
+  }
   try {
     const d = await rpcCuentas('mkt_panel', {});
     MKT.disponible = true;
@@ -107,6 +117,11 @@ const mktFiltro = { vendedor: '', estado: '', q: '', ventasVendedor: '', ventasD
 
 function renderAsociados() {
   const el = document.getElementById('asociadosContenido'); if (!el) return;
+  if (typeof soyAdministrador === 'function' && !soyAdministrador()) {
+    el.innerHTML = `<div class="panel"><h3>Sección del administrador</h3>
+      <p class="muted-sm">«Tiendas asociadas» la administra solo Diego. Desde tu usuario seguís usando el resto del panel como siempre.</p></div>`;
+    return;
+  }
   if (!MKT.disponible) {
     el.innerHTML = `<div class="panel"><h3>Falta instalar la migración 006</h3>
       <p class="muted-sm">Cuando esté instalada, desde acá vas a administrar los vendedores asociados, sus productos y las comisiones.</p></div>`;
@@ -127,7 +142,7 @@ function renderAsociados() {
   if (!tabs.some(([k]) => k === mktTab)) mktTab = 'vendedores';
   const aviso = MKT.esAdmin ? '' : '<div class="notice">Solo el administrador puede hacer cambios. Vos podés ver la información.</div>';
   const estadoGeneral = MKT.etapaC && !MKT.config.activo
-    ? '<div class="notice">El <b>Marketplace está apagado</b>: nada de esta sección se ve en la tienda y el formulario «Quiero vender» no recibe solicitudes. Podés preparar todo y encenderlo cuando esté listo.</div>' : '';
+    ? `<div class="notice">El <b>Marketplace está apagado</b>: nada de esta sección se ve en la tienda y el formulario «Quiero vender» no recibe solicitudes.${MKT.esAdmin ? ' Podés preparar todo y encenderlo cuando esté listo.' : ''}</div>` : '';
   el.innerHTML = `<div class="tabs" role="tablist">${tabs.map(([k, t]) =>
       `<button type="button" role="tab" class="tab${mktTab === k ? ' on' : ''}" aria-selected="${mktTab === k}" onclick="mktTab='${k}';renderAsociados()">${t}</button>`).join('')}</div>`
     + aviso + estadoGeneral + ({ marketplace: htmlMarketplaceMkt, solicitudes: htmlSolicitudesMkt, vendedores: htmlVendedoresMkt,
@@ -169,7 +184,7 @@ function htmlVendedoresMkt() {
           <button class="btn btn-sm" onclick="mktFiltro.vendedor='${v.id}';mktTab='productos';renderAsociados()">Ver productos</button>
           <a class="btn btn-sm" href="${enlaceTiendaPublica(v)}" target="_blank" rel="noopener">Ver su tienda</a>
         </div></div>`;
-    }).join('') : '<p class="muted-sm">Todavía no hay vendedores. Tocá «+ Nuevo vendedor».</p>'}</div></div>`;
+    }).join('') : `<p class="muted-sm">Todavía no hay vendedores.${MKT.esAdmin ? ' Tocá «+ Nuevo vendedor».' : ''}</p>`}</div></div>`;
 }
 
 function abrirVendedorMkt(id) {
