@@ -2,10 +2,12 @@
    ELDOSTORE — Portal de vendedores asociados (js/vendedor.js)
    Marketplace · Etapa C (migración 008)
 
-   SOLO LECTURA. El vendedor ve únicamente SU tienda y SUS productos (y, desde
-   la Etapa D, sus pedidos). No puede modificar nada: todo lo valida la base
-   (mkt_portal_vendedor y mkt_vendedor_actual, funciones que filtran por su
-   cuenta); esta página no tiene ningún botón que escriba datos.
+   El vendedor ve únicamente SU tienda, SUS productos y SUS pedidos. Desde la
+   migración 012 también CARGA y administra sus productos: todo producto nuevo,
+   o con cambios de nombre, descripción, categoría, precio o fotos, queda
+   PENDIENTE hasta que ELDOSTORE lo aprueba. Stock y pausa no requieren
+   aprobación. Todo lo valida la base (mkt_vendedor_* filtran por su cuenta) y
+   las fotos solo se pueden subir a la carpeta de su tienda.
 
    - Las cuentas se crean por INVITACIÓN (Supabase → Invite user) y Diego las
      vincula a la tienda desde el panel. El enlace de la invitación trae la
@@ -107,19 +109,32 @@
         </div>
         ${t.entrega ? `<p><b>Entrega:</b> ${esc(t.entrega)}</p>` : ""}
         ${t.estado === "activo" && d.marketplaceActivo && t.slug ? `<p><a href="index.html#tiendas/${encodeURIComponent(t.slug)}" target="_blank" rel="noopener">Ver mi tienda en la web</a></p>` : ""}
-        <p class="vp-muted">Este portal es de consulta. Para cambiar datos, precios, stock o fotos, ${contacto("Hola, soy " + (t.nombre || "vendedor asociado") + " y quiero hacer un cambio en mi tienda.")}.</p>
+        <p class="vp-muted">${!("puedeEditar" in d) ? "Este portal es de consulta. Para cambiar precios, stock o fotos, escribile a ELDOSTORE." : d.puedeEditar ? "Desde acá cargás tus productos. Cada producto nuevo, o con cambios de nombre, precio, descripción, categoría o fotos, lo revisa ELDOSTORE antes de publicarlo. El stock y las pausas se aplican al instante." : "Tu tienda está bloqueada: no podés cargar ni cambiar productos."} Para cambiar los datos de la tienda, ${contacto("Hola, soy " + (t.nombre || "vendedor asociado") + " y quiero hacer un cambio en mi tienda.")}.</p>
       </section>
       <section class="vp-card" aria-labelledby="vpP">
         <h2 id="vpP">Mis productos (${prods.length})</h2>
+        ${d.puedeEditar ? '<p><button class="vp-btn" type="button" data-acc="nuevo">+ Cargar producto</button></p>' : ""}
         <div class="vp-prods">${prods.length ? prods.map(p => {
           const s = PROD[p.estado] || ["", p.estado], foto = url((p.fotos || [])[0]);
-          return `<article class="vp-prod">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : '<span class="vp-sin">Sin foto</span>'}
+          const libre = Number(p.stock) - Number(p.apartado || 0);
+          return `<article class="vp-prod" data-id="${esc(p.id)}">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : '<span class="vp-sin">Sin foto</span>'}
             <div class="vp-prod-t"><b>${esc(p.nombre)}</b>
               <small>${esc(p.codigo)}${p.categoria ? " · " + esc(p.categoria) : ""}</small>
-              <small>${money(p.precio)} · stock ${Number(p.stock)}${Number(p.apartado) ? " (" + Number(p.apartado) + " apartado en compras sin pagar)" : ""} · comisión ${pct(p.comisionPct)}</small>
+              <small>${money(p.precio)} · stock ${Number(p.stock)}${Number(p.apartado) ? " (" + Number(p.apartado) + " apartado en compras sin pagar, " + libre + " libre)" : ""} · comisión ${pct(p.comisionPct)}</small>
               <span><span class="vp-badge ${s[0]}">${esc(s[1])}</span> ${p.bloqueado ? '<span class="vp-badge no">Bloqueado</span>' : ""}
                 <span class="vp-badge ${p.publicado ? "ok" : ""}">${p.publicado ? "Se ve en la web" : "No se ve en la web"}</span></span>
-              ${p.motivoBloqueo ? `<small>Motivo: ${esc(p.motivoBloqueo)}</small>` : ""}</div></article>`;
+              ${p.estado === "pausado" ? `<small>${p.pausadoPor === "vendedor" ? "Lo pausaste vos." : "Lo pausó ELDOSTORE: para reanudarlo, escribile."}</small>` : ""}
+              ${p.estado === "rechazado" ? "<small>ELDOSTORE no lo aprobó. Podés corregirlo y se vuelve a revisar.</small>" : ""}
+              ${p.motivoBloqueo ? `<small>Motivo: ${esc(p.motivoBloqueo)}</small>` : ""}
+              ${d.puedeEditar ? `<div class="vp-acc">
+                <label class="vp-stock">Stock <input type="number" min="${Number(p.apartado || 0)}" max="99999" step="1" inputmode="numeric" value="${Number(p.stock)}" data-stock="${esc(p.id)}" aria-label="Stock de ${esc(p.nombre)}"></label>
+                <button class="vp-btn sec chico" type="button" data-acc="stock" data-id="${esc(p.id)}">Guardar stock</button>
+                <button class="vp-btn sec chico" type="button" data-acc="editar" data-id="${esc(p.id)}">Editar</button>
+                ${p.estado === "aprobado" ? `<button class="vp-btn sec chico" type="button" data-acc="pausar" data-id="${esc(p.id)}">Pausar</button>` : ""}
+                ${p.estado === "pausado" && p.pausadoPor === "vendedor" ? `<button class="vp-btn sec chico" type="button" data-acc="reanudar" data-id="${esc(p.id)}">Reanudar</button>` : ""}
+                ${p.puedeEliminar ? `<button class="vp-btn sec chico peligro" type="button" data-acc="eliminar" data-id="${esc(p.id)}">Eliminar</button>` : ""}
+              </div>` : ""}
+            </div></article>`;
         }).join("") : '<p class="vp-muted">Todavía no hay productos cargados en tu tienda.</p>'}</div>
       </section>
       <section class="vp-card" aria-labelledby="vpPed">
@@ -140,6 +155,149 @@
           : '<p class="vp-muted">Todavía no hay pedidos. Cuando ELDOSTORE habilite las compras, acá vas a ver los pedidos de tu tienda.</p>'}
       </section>`;
   }
+
+
+  /* ---------- Productos del vendedor (migración 012) ---------- */
+  let PORTAL = null;            // últimos datos del portal
+  let BORRADOR = null;          // { id, fotos: [url], subiendo: n }
+  const msgPortal = (texto, tipo) => {
+    let el = $("#vpAviso");
+    if (!el) { el = document.createElement("p"); el.id = "vpAviso"; el.setAttribute("role", "status"); main.prepend(el); }
+    el.className = "vp-msg " + (tipo || "ok"); el.textContent = texto; el.scrollIntoView({ block: "nearest" });
+  };
+  const errTxt = e => (e && e.message ? e.message : String(e || "Error")).replace(/^.*?ERROR:\s*/, "");
+  async function recargar(aviso, tipo) {
+    const r = await sb.rpc("mkt_portal_vendedor");
+    if (r.error) { msgPortal(errTxt(r.error), "err"); return; }
+    PORTAL = r.data; dibujarPortal(r.data); if (aviso) msgPortal(aviso, tipo);
+  }
+  const prodPorId = id => (PORTAL && PORTAL.productos || []).find(p => p.id === id);
+
+  function dibujarFotosBorrador() {
+    const caja = $("#vpFotos"); if (!caja) return;
+    const f = BORRADOR.fotos;
+    caja.innerHTML = f.length ? f.map((u, i) => `<div class="vp-foto"><img src="${esc(url(u))}" alt="Foto ${i + 1}">
+        <div class="vp-foto-acc">
+          <button type="button" class="vp-btn sec chico" data-foto="izq" data-i="${i}" ${i ? "" : "disabled"} aria-label="Mover la foto ${i + 1} antes">◀</button>
+          <button type="button" class="vp-btn sec chico" data-foto="der" data-i="${i}" ${i < f.length - 1 ? "" : "disabled"} aria-label="Mover la foto ${i + 1} después">▶</button>
+          <button type="button" class="vp-btn sec chico peligro" data-foto="quitar" data-i="${i}" aria-label="Quitar la foto ${i + 1}">Quitar</button>
+        </div></div>`).join("") : '<p class="vp-muted">Todavía no agregaste fotos. La primera es la principal.</p>';
+    const est = $("#vpFotosEstado");
+    if (est) est.textContent = BORRADOR.subiendo ? `Subiendo ${BORRADOR.subiendo} foto(s)…` : `${f.length} de ${PORTAL.limites.fotosPorProducto} fotos`;
+    const g = $("#vpGuardarProd"); if (g) g.disabled = BORRADOR.subiendo > 0;
+  }
+
+  function formularioProducto(id) {
+    const p = id ? prodPorId(id) : null;
+    if (id && !p) { recargar("Ese producto ya no está disponible.", "err"); return; }
+    BORRADOR = { id: p ? p.id : null, fotos: p ? (p.fotos || []).slice() : [], subiendo: 0 };
+    const cats = PORTAL.categorias || [];
+    main.innerHTML = `<section class="vp-card" aria-labelledby="vpFT">
+      <h1 id="vpFT">${p ? "Editar producto" : "Cargar producto"}</h1>
+      ${p && p.estado !== "pendiente" ? '<p class="vp-msg warn">Si cambiás nombre, precio, descripción, categoría o fotos, el producto deja de verse en la web hasta que ELDOSTORE lo vuelva a aprobar. Cambiar solo el stock no requiere aprobación.</p>'
+        : '<p class="vp-muted">El producto queda <b>en revisión</b>: ELDOSTORE lo revisa y lo publica. Te conviene cargar buenas fotos y una descripción clara.</p>'}
+      <p class="vp-msg err vp-hidden" id="vpFErr" role="alert"></p>
+      <form class="vp-form vp-form-ancho" id="vpProd" novalidate>
+        <label for="vpFN">Nombre<input id="vpFN" maxlength="140" required value="${esc(p ? p.nombre : "")}"></label>
+        <label for="vpFC">Categoría<select id="vpFC"><option value="">Sin categoría</option>${cats.map(c => `<option value="${esc(c.id)}" ${p && p.categoriaId === c.id ? "selected" : ""}>${esc(c.nombre)}</option>`).join("")}</select></label>
+        <div class="vp-dos">
+          <label for="vpFP">Precio (ARS)<input id="vpFP" type="number" min="1" step="0.01" inputmode="decimal" required value="${p ? esc(p.precio) : ""}"></label>
+          <label for="vpFS">Stock<input id="vpFS" type="number" min="${p ? Number(p.apartado || 0) : 0}" max="99999" step="1" inputmode="numeric" required value="${p ? Number(p.stock) : ""}"></label>
+        </div>
+        <label for="vpFD">Descripción<textarea id="vpFD" maxlength="2000" rows="5">${esc(p ? p.descripcion : "")}</textarea></label>
+        <fieldset class="vp-fs"><legend>Fotos (hasta ${PORTAL.limites.fotosPorProducto})</legend>
+          <div class="vp-fotos" id="vpFotos"></div>
+          <label class="vp-btn sec" for="vpFArch" style="display:inline-flex;align-items:center;justify-content:center">Agregar fotos</label>
+          <input id="vpFArch" type="file" accept="image/*" multiple class="vp-oculto">
+          <small class="vp-muted" id="vpFotosEstado"></small>
+        </fieldset>
+        <div class="vp-dos">
+          <button class="vp-btn" type="submit" id="vpGuardarProd">${p ? "Guardar cambios" : "Enviar a revisión"}</button>
+          <button class="vp-btn sec" type="button" data-acc="volver">Volver</button>
+        </div>
+      </form></section>`;
+    dibujarFotosBorrador();
+    $("#vpFN").focus();
+  }
+
+  async function subirFotos(archivos) {
+    const max = PORTAL.limites.fotosPorProducto, err = $("#vpFErr");
+    const lugar = max - BORRADOR.fotos.length - BORRADOR.subiendo;
+    const lista = Array.from(archivos).slice(0, Math.max(0, lugar));
+    if (archivos.length > lista.length) { err.textContent = `Podés tener hasta ${max} fotos por producto.`; err.classList.remove("vp-hidden"); }
+    await Promise.all(lista.map(async archivo => {
+      BORRADOR.subiendo++; dibujarFotosBorrador();
+      try {
+        if (typeof optimizarImagen !== "function") throw new Error("No se pudo preparar la foto. Recargá la página.");
+        const img = await optimizarImagen(archivo, "asociado");
+        const ext = ["webp", "jpg", "jpeg", "png"].includes(img.ext) ? img.ext : null;
+        if (!ext) throw new Error("Formato de imagen no admitido. Usá JPG o PNG.");
+        const azar = Math.random().toString(36).slice(2, 10).padEnd(6, "0");
+        const nombre = `${PORTAL.limites.carpetaFotos}/${Date.now()}-${azar}.${ext}`;
+        const { error } = await sb.storage.from("productos-fotos").upload(nombre, img.blob, { contentType: img.mime, cacheControl: "31536000", upsert: false });
+        if (error) throw new Error("No se pudo subir la foto: " + (error.message || "error"));
+        BORRADOR.fotos.push(sb.storage.from("productos-fotos").getPublicUrl(nombre).data.publicUrl);
+      } catch (e) {
+        err.textContent = errTxt(e); err.classList.remove("vp-hidden");
+      } finally {
+        BORRADOR.subiendo--; dibujarFotosBorrador();
+      }
+    }));
+  }
+
+  async function guardarProducto() {
+    const err = $("#vpFErr"), btn = $("#vpGuardarProd");
+    const mal = m => { err.textContent = m; err.classList.remove("vp-hidden"); err.scrollIntoView({ block: "nearest" }); };
+    err.classList.add("vp-hidden");
+    const nombre = $("#vpFN").value.trim(), precio = $("#vpFP").value.trim(), stock = $("#vpFS").value.trim();
+    if (nombre.length < 2) return mal("Escribí el nombre del producto.");
+    if (!(Number(precio) > 0)) return mal("El precio tiene que ser mayor que 0.");
+    if (!/^\d+$/.test(stock)) return mal("El stock tiene que ser un número entero (0 o más).");
+    if (BORRADOR.subiendo) return mal("Esperá a que terminen de subirse las fotos.");
+    btn.disabled = true; btn.textContent = "Guardando…";
+    const r = await sb.rpc("mkt_vendedor_guardar_producto", { p_id: BORRADOR.id, p_datos: {
+      nombre, precio, stock, descripcion: $("#vpFD").value.trim(), categoria_id: $("#vpFC").value || null, fotos: BORRADOR.fotos } });
+    if (r.error) { btn.disabled = false; btn.textContent = BORRADOR.id ? "Guardar cambios" : "Enviar a revisión"; return mal(errTxt(r.error)); }
+    BORRADOR = null;
+    await recargar(r.data.aRevision ? `«${nombre}» quedó en revisión: ELDOSTORE lo va a revisar antes de publicarlo.` : "Cambios guardados.");
+  }
+
+  main.addEventListener("change", e => { if (e.target.id === "vpFArch" && e.target.files.length) { subirFotos(e.target.files); e.target.value = ""; } });
+  main.addEventListener("submit", e => { if (e.target.id === "vpProd") { e.preventDefault(); guardarProducto(); } });
+  main.addEventListener("click", async e => {
+    const f = e.target.closest("[data-foto]");
+    if (f && BORRADOR) {
+      const i = Number(f.dataset.i), a = BORRADOR.fotos;
+      if (f.dataset.foto === "quitar") a.splice(i, 1);
+      if (f.dataset.foto === "izq" && i > 0) [a[i - 1], a[i]] = [a[i], a[i - 1]];
+      if (f.dataset.foto === "der" && i < a.length - 1) [a[i + 1], a[i]] = [a[i], a[i + 1]];
+      dibujarFotosBorrador(); return;
+    }
+    const b = e.target.closest("[data-acc]"); if (!b) return;
+    const acc = b.dataset.acc, id = b.dataset.id;
+    if (acc === "nuevo") return formularioProducto(null);
+    if (acc === "editar") return formularioProducto(id);
+    if (acc === "volver") { BORRADOR = null; return recargar(); }
+    if (acc === "eliminar" && b.dataset.seguro !== "si") { b.dataset.seguro = "si"; b.textContent = "¿Eliminar? Tocá de nuevo"; return; }
+    b.disabled = true;
+    let r;
+    if (acc === "stock") {
+      const v = (main.querySelector(`[data-stock="${CSS.escape(id)}"]`) || {}).value;
+      if (!/^\d+$/.test(String(v || "").trim())) { b.disabled = false; return msgPortal("El stock tiene que ser un número entero (0 o más).", "err"); }
+      r = await sb.rpc("mkt_vendedor_stock", { p_id: id, p_stock: Number(v) });
+      if (!r.error) return recargar("Stock actualizado.");
+    }
+    if (acc === "pausar" || acc === "reanudar") {
+      r = await sb.rpc("mkt_vendedor_pausar", { p_id: id, p_pausar: acc === "pausar" });
+      if (!r.error) return recargar(acc === "pausar" ? "Producto pausado: ya no se ve en la web." : "Producto reanudado.");
+    }
+    if (acc === "eliminar") {
+      r = await sb.rpc("mkt_vendedor_eliminar_producto", { p_id: id });
+      if (!r.error) return recargar("Producto eliminado.");
+    }
+    b.disabled = false;
+    if (r && r.error) msgPortal(errTxt(r.error), "err");
+  });
 
   // Enlace vencido o ya usado: Supabase vuelve con #error=…&error_code=otp_expired (u otro). Mensaje claro y sin datos en la dirección.
   const errorEnlace = /error_code=|[#&]error=/.test(location.hash);
@@ -163,6 +321,7 @@
     }
     const r = await sb.rpc("mkt_portal_vendedor");
     if (r.error) { main.innerHTML = `<div class="vp-card"><p class="vp-msg err">${esc(r.error.message)}</p></div>`; return; }
+    PORTAL = r.data;
     dibujarPortal(r.data, aviso);
     document.title = (r.data.tienda && r.data.tienda.nombre ? r.data.tienda.nombre + " | " : "") + "Portal de vendedores | ELDOSTORE";
   }

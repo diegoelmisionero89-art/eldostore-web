@@ -9,7 +9,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23080808'/%3E%3Ctext x='50' y='68' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='58' fill='%23d4aa4b' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/tienda.css">
 <style>
-  /* Portal de vendedores asociados: SOLO LECTURA (Marketplace · migración 008) */
+  /* Portal de vendedores asociados (Marketplace · migraciones 008 y 012: carga de productos con aprobación) */
   body{background:var(--bg);color:var(--text);font-family:var(--font);margin:0}
   .vp-top{background:var(--ink);color:#fff;padding:12px var(--gutter-r) 12px var(--gutter-l)}
   .vp-top-in{max-width:960px;margin:0 auto;display:flex;align-items:center;gap:12px}
@@ -41,6 +41,23 @@
   .vp-prod-t small{color:var(--muted)}
   .vp-muted{color:var(--muted);font-size:14px}
   .vp-hidden{display:none!important}
+  .vp-oculto{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+  .vp-form-ancho{max-width:640px}
+  .vp-form select,.vp-form textarea{padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;font-family:inherit;background:#fff}
+  .vp-form select{min-height:46px}
+  .vp-dos{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+  .vp-fs{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+  .vp-fs legend{font-weight:700;font-size:14px;padding:0 4px}
+  .vp-fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+  .vp-foto{border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:6px;background:var(--bg)}
+  .vp-foto img{width:100%;aspect-ratio:1;object-fit:contain;border-radius:8px;background:#fff}
+  .vp-foto-acc{display:flex;gap:4px;flex-wrap:wrap}
+  .vp-btn.chico{min-height:36px;padding:0 10px;font-size:13px}
+  .vp-btn.peligro{color:#9b1c1c;border-color:#f3c4c4}
+  .vp-btn:disabled{opacity:.55;cursor:not-allowed}
+  .vp-acc{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end;margin-top:6px}
+  .vp-stock{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted)}
+  .vp-stock input{width:90px;min-height:36px;padding:0 8px;border:1px solid var(--line);border-radius:8px;font-size:16px}
 </style>
 </head>
 <body>
@@ -62,6 +79,7 @@ window.ELDOSTORE_CONFIG = {
 };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/vendedor.js?v=20261120"></script>
+<script src="js/imagenes.js?v=20261121"></script>
+<script src="js/vendedor.js?v=20261121"></script>
 </body>
 </html>

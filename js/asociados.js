@@ -332,7 +332,9 @@ function htmlListaProductosMkt(lista) {
       <div class="promo-meta"><strong>${esc(p.nombre)} <span class="badge ${BADGE_MKT[p.estado]}">${ESTADOS_MKT[p.estado]}</span>${p.bloqueado ? ' <span class="badge badge-warn">Bloqueado</span>' : ''}</strong>
         <small>${esc(p.codigo)} · <b>${v ? esc(v.nombre) : '—'}</b>${v && !v.activo ? ' (vendedor no activo: no se ve)' : ''}</small>
         <small>${fmt(p.precio)} · stock ${p.stock}${p.stock === 0 ? ' (se ve «Sin stock»)' : ''}${p.categoria ? ' · ' + esc(p.categoria) : ''} · ${(p.fotos || []).length} foto${(p.fotos || []).length === 1 ? '' : 's'}${MKT.esAdmin ? ` · comisión ${fmtPct(pctProductoMkt(p))}${p.comision_pct != null ? ' (propia)' : ''}` : ''}</small>
-        ${p.bloqueado && p.motivo_bloqueo ? `<small>Motivo del bloqueo: ${esc(p.motivo_bloqueo)}</small>` : ''}</div>
+        ${p.bloqueado && p.motivo_bloqueo ? `<small>Motivo del bloqueo: ${esc(p.motivo_bloqueo)}</small>` : ''}
+        ${p.estado === 'pendiente' && p.cambio_vendedor ? `<small><b>Cargado o modificado por el vendedor</b> el ${fmtDate(p.cambio_vendedor)}: revisá nombre, precio, descripción y fotos antes de aprobar.</small>` : ''}
+        ${p.estado === 'pausado' && p.pausado_por === 'vendedor' ? '<small>Lo pausó el vendedor (puede reanudarlo él mismo).</small>' : ''}</div>
       <div class="promo-acc">
         ${acc.map(([e, t, c]) => `<button class="btn btn-sm ${c}" ${mktAdmin()} onclick="estadoProductoMkt('${p.id}','${e}')">${t}</button>`).join('')}
         ${MKT.etapaC ? `<button class="btn btn-sm${p.bloqueado ? '' : ' btn-danger'}" ${mktAdmin()} onclick="bloquearProductoMkt('${p.id}', ${!p.bloqueado})">${p.bloqueado ? 'Desbloquear' : 'Bloquear'}</button>` : ''}
