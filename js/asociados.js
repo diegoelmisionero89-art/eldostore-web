@@ -625,7 +625,7 @@ function abrirCuentasMkt(id) {
     <div id="muEnlace"></div>
     <div class="notice">Escribí el email del vendedor y tocá <b>Crear enlace de invitación</b>. No se manda ningún correo: el panel te da un enlace
       para <b>copiar</b> o <b>enviar por WhatsApp</b> al vendedor. Con ese enlace crea su contraseña y su cuenta queda vinculada SOLO a esta tienda.
-      El enlace sirve una sola vez y vence; si venció, generá uno nuevo.<br>
+      El enlace sirve una sola vez y vence en 1 hora; si venció, generá uno nuevo.<br>
       Una cuenta del panel (Diego, Niko u otro usuario habilitado) no se puede vincular, y una cuenta de vendedor nunca puede habilitarse en el panel.</div>
     <div class="field"><label>Email del vendedor</label><input id="mu_email" type="email" maxlength="120" autocomplete="off"></div>
     <div class="modal-actions"><button class="btn btn-sm" onclick="closeModal()">Cerrar</button>
@@ -660,14 +660,14 @@ function mensajeInvitacionMkt(v, data) {
     + `1. Abrí este enlace: ${data.enlace}\n`
     + `2. Elegí tu contraseña (mínimo 8 caracteres).\n`
     + `3. Después entrás siempre desde ${new URL('vendedor.html', location.href).href} con tu email y esa contraseña.\n\n`
-    + `El enlace es personal, sirve una sola vez y vence pronto: no lo compartas. Si venció, avisame y te mando otro.`;
+    + `El enlace es personal, sirve una sola vez y vence en 1 hora: no lo compartas. Si venció, avisame y te mando otro.`;
 }
 function mostrarEnlaceInvitacionMkt(vendedorId, correo, data) {
   const v = vendedorMkt(vendedorId); const caja = document.getElementById('muEnlace'); if (!v || !caja) return;
   mktUltimoEnlace = { vendedorId, correo, data };
   const wa = String(v.whatsapp || '').replace(/\D/g, '');
   caja.innerHTML = `<div class="notice" role="status"><b>${data.cuentaNueva ? 'Enlace de invitación listo' : 'Enlace para elegir contraseña listo'}</b> · ${esc(correo)} quedó vinculada a <b>${esc(v.nombre)}</b>.<br>
-      Mandale el enlace solo a esa persona. Sirve una sola vez y vence (si pasa, generá uno nuevo).
+      Mandale el enlace solo a esa persona. Sirve una sola vez y vence en 1 hora (si pasa, generá uno nuevo).
       <div class="field"><label>Enlace</label><input id="muLink" type="text" readonly value="${esc(data.enlace)}" onclick="this.select()"></div>
       <div class="modal-actions" style="justify-content:flex-start">
         <button class="btn btn-sm" onclick="copiarEnlaceInvitacionMkt()">Copiar enlace</button>
