@@ -46,6 +46,7 @@
   const wa = v => { const n = String(v || "").replace(/\D/g, ""); return n.length >= 10 && n.length <= 15 ? n : ""; };
   const WA_SVG = $("#waFab svg") ? $("#waFab svg").outerHTML : "";
   const ATRAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+  const COMPARTIR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
   const TIENDA_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9l1.5-5h13L20 9M4 9h16v2a3 3 0 0 1-5.3 1.9A3 3 0 0 1 12 14a3 3 0 0 1-2.7-1.1A3 3 0 0 1 4 11V9zM5 13.5V20h14v-6.5M10 20v-4h4v4"/></svg>';
 
   /* ---------- Datos ---------- */
@@ -222,7 +223,7 @@
     const prods = cat ? D.productos.filter(p => p.categoriaSlug === cat.slug) : [];
     pag.innerHTML = barra("Tiendas asociadas") + `<div class="f-wrap">
       <h1 class="as-h1" id="asTitulo" tabindex="-1">Tiendas asociadas</h1>
-      <p class="as-intro">Comercios de la zona que venden a través de ELDOSTORE. Cada tienda recibe su pedido por WhatsApp y coordina con vos el pago y la entrega.</p>
+      <p class="as-intro">${D.compras ? "Comercios de la zona que venden a través de ELDOSTORE. Pagás todo junto a ELDOSTORE, en una sola compra, y cada tienda prepara su pedido y coordina la entrega con vos." : "Comercios de la zona que venden a través de ELDOSTORE. Cada tienda recibe su pedido por WhatsApp y coordina con vos el pago y la entrega."}</p>
       ${D.categorias.length ? `<div class="as-cats" role="group" aria-label="Categorías de las tiendas asociadas">
         <button type="button" class="as-cat" data-as="cat" data-c="" aria-pressed="${!cat}">Todas las tiendas</button>
         ${D.categorias.map(c => `<button type="button" class="as-cat" data-as="cat" data-c="${esc(c.slug)}" aria-pressed="${catSel === c.slug}">${esc(c.nombre)}</button>`).join("")}</div>` : ""}
@@ -244,9 +245,10 @@
           ${v.descripcion ? `<p class="as-desc">${esc(v.descripcion)}</p>` : ""}
           ${v.entrega ? `<p class="as-desc"><b>Entrega:</b> ${esc(v.entrega)}</p>` : ""}
           <a class="f-wa as-wa" href="https://wa.me/${v.whatsapp}?text=${encodeURIComponent("Hola " + v.nombre + ", te escribo desde Tiendas asociadas de ELDOSTORE.")}" target="_blank" rel="noopener noreferrer">${WA_SVG}Escribir a ${esc(v.nombre)}</a>
+          <button type="button" class="as-compartir" data-as="compartir">${COMPARTIR_SVG}Compartir tienda</button>
         </div>
       </header>
-      <p class="as-aviso">Los productos de esta tienda los vende y entrega <b>${esc(v.nombre)}</b>. El pedido se envía a su WhatsApp y el pago se coordina con el vendedor. No se suman a tu carrito de ELDOSTORE.</p>
+      <p class="as-aviso">${D.compras ? `Los productos de esta tienda los vende y entrega <b>${esc(v.nombre)}</b>. Pagás tu compra a ELDOSTORE (una sola vez, aunque compres en varias tiendas) y ${esc(v.nombre)} recibe su pedido y coordina la entrega con vos.` : `Los productos de esta tienda los vende y entrega <b>${esc(v.nombre)}</b>. El pedido se envía a su WhatsApp y el pago se coordina con el vendedor. No se suman a tu carrito de ELDOSTORE.`}</p>
       ${v.productos.length > 8 ? `<label class="search as-buscar"><span class="sr">Buscar en ${esc(v.nombre)}</span><input type="search" id="asBuscar" placeholder="Buscar en ${esc(v.nombre)}…" value="${esc(filtroTienda.texto)}" autocomplete="off"></label>` : ""}
       <div class="products as-prods" id="asProds">${lista.length ? lista.map(p => cardHTML(v, p)).join("")
         : `<div class="state"><b>${v.productos.length ? "No encontramos productos con esa búsqueda." : "Esta tienda todavía no tiene productos publicados."}</b></div>`}</div>
@@ -278,8 +280,9 @@
           : `<div class="f-buy"><button type="button" class="add f-add" disabled>${p.disponible ? "Precio a confirmar" : "Sin stock"}</button></div>`}
         <p class="incart" ${en ? "" : "hidden"}>En tu pedido a ${esc(v.nombre)}: ${en}</p>
         ${p.descripcion ? `<div class="as-pdesc">${esc(p.descripcion).replace(/\n/g, "<br>")}</div>` : ""}
-        <ul class="f-notes"><li>Lo vende y entrega ${esc(v.nombre)}${v.localidad ? " (" + esc(v.localidad) + ")" : ""}.</li><li>El pago y la entrega se coordinan con el vendedor por WhatsApp.</li></ul>
+        <ul class="f-notes"><li>Lo vende y entrega ${esc(v.nombre)}${v.localidad ? " (" + esc(v.localidad) + ")" : ""}.</li><li>${D.compras ? "Pagás a ELDOSTORE y la entrega la coordina " + esc(v.nombre) + " con vos." : "El pago y la entrega se coordinan con el vendedor por WhatsApp."}</li></ul>
         <a class="f-wa" href="https://wa.me/${v.whatsapp}?text=${encodeURIComponent(consulta(v, p))}" target="_blank" rel="noopener noreferrer">${WA_SVG}Consultar a ${esc(v.nombre)}</a>
+        <button type="button" class="as-compartir" data-as="compartir" data-p="${esc(p.codigo)}">${COMPARTIR_SVG}Compartir producto</button>
       </div></div></div>`;
     document.title = p.nombre + " | " + v.nombre + " | ELDOSTORE";
   }
@@ -544,6 +547,15 @@
 
   /* ---------- Navegación ---------- */
   let tToast;
+  /* Compartir una tienda o un producto: el menú del teléfono (WhatsApp, Instagram…) o, si no hay, copiar el enlace. */
+  async function compartir(v, p) {
+    const enlace = location.origin + location.pathname + "#tiendas/" + encodeURIComponent(v.slug) + (p ? "/" + encodeURIComponent(p.codigo) : "");
+    const titulo = p ? p.nombre + " · " + v.nombre : v.nombre + " · Tienda asociada a ELDOSTORE";
+    const texto = p ? `Mirá ${p.nombre}${p.precio ? " (" + money(p.precio) + ")" : ""} en ${v.nombre}, tienda asociada a ELDOSTORE` : `Mirá la tienda ${v.nombre} en ELDOSTORE`;
+    if (navigator.share) { try { await navigator.share({ title: titulo, text: texto, url: enlace }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+    try { await navigator.clipboard.writeText(enlace); toast("<b>Enlace copiado.</b> Pegalo en WhatsApp o en tus redes."); }
+    catch (e) { toast("Copiá este enlace: " + esc(enlace)); }
+  }
   function toast(h) { const t = $("#toast"); if (!t) return; t.innerHTML = h; t.classList.add("on"); clearTimeout(tToast); tToast = setTimeout(() => t.classList.remove("on"), 2200); }
   function redibujar() {
     if (pag.hidden || !ruta) return;
@@ -627,6 +639,7 @@
     if (a === "pedido" && D.compras) { abrirCompra(); return; }
     if (a === "pedido" && v) { abrirPedido(v); return; }
     if (!v) return;
+    if (a === "compartir") { compartir(v, b.dataset.p ? v.productos.find(x => x.codigo === b.dataset.p) : null); return; }
     if (a === "foto") {
       fotoI = Number(b.dataset.i) || 0;
       const t = pag.querySelector(".as-track"); if (t) t.scrollTo({ left: fotoI * t.clientWidth, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });

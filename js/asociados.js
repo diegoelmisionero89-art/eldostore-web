@@ -183,6 +183,8 @@ function htmlVendedoresMkt() {
           ${MKT.etapaC && MKT.esAdmin ? `<button class="btn btn-sm" onclick="abrirCuentasMkt('${v.id}')">Cuentas de acceso</button>` : ''}
           <button class="btn btn-sm" onclick="mktFiltro.vendedor='${v.id}';mktTab='productos';renderAsociados()">Ver productos</button>
           <a class="btn btn-sm" href="${enlaceTiendaPublica(v)}" target="_blank" rel="noopener">Ver su tienda</a>
+          <button class="btn btn-sm" onclick="copiarEnlaceTiendaMkt('${v.id}')">Copiar enlace</button>
+          ${MKT.etapaC && MKT.esAdmin ? `<button class="btn btn-sm btn-danger" onclick="eliminarVendedorMkt('${v.id}')">Eliminar</button>` : ''}
         </div></div>`;
     }).join('') : `<p class="muted-sm">Todavía no hay vendedores.${MKT.esAdmin ? ' Tocá «+ Nuevo vendedor».' : ''}</p>`}</div></div>`;
 }
@@ -249,6 +251,37 @@ async function guardarVendedorMkt(id) {
     await rpcMkt('mkt_guardar_vendedor', { p_id: id || null, p_datos: datos });
     closeModal(); renderAsociados(); showToast('Vendedor guardado.');
   } catch (e) { showError(e); btn.disabled = false; btn.textContent = 'Guardar'; }
+}
+
+/* Enlace público (absoluto) de una tienda, para compartir por WhatsApp o redes. */
+function enlaceAbsolutoTiendaMkt(v) { return new URL('.', location.href).href + '#tiendas/' + encodeURIComponent(v.slug); }
+async function copiarTextoMkt(texto) {
+  try { await navigator.clipboard.writeText(texto); return true; }
+  catch (e) {
+    const t = document.createElement('textarea'); t.value = texto; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+    t.remove(); return ok;
+  }
+}
+async function copiarEnlaceTiendaMkt(id) {
+  const v = vendedorMkt(id); if (!v) return;
+  const enlace = enlaceAbsolutoTiendaMkt(v);
+  showToast(await copiarTextoMkt(enlace) ? 'Enlace copiado: ' + enlace : 'Copiá este enlace: ' + enlace);
+}
+/* Eliminar una tienda (migración 011): solo si nunca vendió; si tiene historial, la base lo impide. */
+async function eliminarVendedorMkt(id) {
+  const v = vendedorMkt(id); if (!v) return;
+  const prods = MKT.productos.filter(p => p.vendedor_id === id).length;
+  if (!confirm(`¿Eliminar la tienda «${v.nombre}»? Se borran también sus ${prods} producto${prods === 1 ? '' : 's'} y sus fotos, y se desvincula su cuenta de acceso. No se puede deshacer.\n\nSi la tienda ya vendió, no se puede eliminar: en ese caso suspendela o bloqueala.`)) return;
+  try {
+    const r = await rpcMkt('mkt_eliminar_vendedor', { p_id: id });
+    mktFiltro.vendedor = ''; renderAsociados();
+    showToast(`Tienda eliminada (${r.productos} producto${r.productos === 1 ? '' : 's'} y ${r.fotos} foto${r.fotos === 1 ? '' : 's'}).`);
+  } catch (e) {
+    if (funcionInexistente(e)) showToast('Para eliminar tiendas falta instalar la migración 011. Mientras tanto podés suspenderla o bloquearla.');
+    else showError(e);
+  }
 }
 
 async function activarVendedorMkt(id, activo) {
@@ -583,18 +616,36 @@ function abrirCuentasMkt(id) {
   const v = vendedorMkt(id); if (!v) return;
   const cuentas = MKT.cuentas.filter(c => c.vendedor_id === id);
   openModal(`<h3>Cuentas de acceso · ${esc(v.nombre)}</h3>
-    <p class="muted-sm">Con su cuenta, el vendedor entra a <b>vendedor.html</b> y ve SOLO su tienda y sus productos (más adelante, sus pedidos). No puede modificar nada ni entrar a este panel.</p>
+    <p class="muted-sm">Con su cuenta, el vendedor entra a <b>vendedor.html</b> y ve SOLO su tienda, sus productos y sus pedidos. No puede modificar nada ni entrar a este panel.</p>
     ${cuentas.length ? `<div class="promo-list">${cuentas.map(c => `<div class="promo-item${c.activo ? '' : ' off'}"><div class="promo-meta"><strong>${esc(c.email)} ${c.activo ? '<span class="badge badge-ok">Activa</span>' : '<span class="badge badge-pend">Desactivada</span>'}</strong>
         <small>Vinculada el ${fmtDate(c.creado)}</small></div>
       <div class="promo-acc"><button class="btn btn-sm" onclick="activarCuentaMkt('${c.user_id}', ${!c.activo})">${c.activo ? 'Desactivar' : 'Reactivar'}</button>
         <button class="btn btn-sm btn-danger" onclick="desvincularCuentaMkt('${c.user_id}')">Desvincular</button></div></div>`).join('')}</div>` : '<p class="muted-sm">Todavía no tiene cuenta de acceso.</p>'}
-    <div class="notice"><b>Cómo se crea la cuenta (por invitación):</b><br>
-      1. En Supabase → Authentication → Users → <b>Invite user</b>, escribí el email del vendedor. Le llega un correo para crear su contraseña.<br>
-      2. Volvé acá y vinculá ese email a esta tienda.<br>
+    <div class="notice">Escribí el email del vendedor y tocá <b>Invitar y vincular</b>: le llega un correo para crear su contraseña y la cuenta queda vinculada a esta tienda.
+      Si la cuenta ya existe, usá <b>Solo vincular</b>.<br>
       Una cuenta del panel (Diego, Niko u otro usuario habilitado) no se puede vincular, y una cuenta de vendedor nunca puede habilitarse en el panel.</div>
-    <div class="field"><label>Email de la cuenta</label><input id="mu_email" type="email" maxlength="120" autocomplete="off"></div>
+    <div class="field"><label>Email del vendedor</label><input id="mu_email" type="email" maxlength="120" autocomplete="off"></div>
     <div class="modal-actions"><button class="btn btn-sm" onclick="closeModal()">Cerrar</button>
-      <button class="btn btn-primary btn-sm" id="muBtn" onclick="vincularCuentaMkt('${id}')">Vincular cuenta</button></div>`);
+      <button class="btn btn-sm" id="muBtn" onclick="vincularCuentaMkt('${id}')">Solo vincular</button>
+      <button class="btn btn-primary btn-sm" id="muInv" onclick="invitarCuentaMkt('${id}')">Invitar y vincular</button></div>`);
+}
+/* Invitación automática (función de Supabase «mkt-invitar-vendedor», migración 011): envía el correo y vincula. */
+async function invitarCuentaMkt(vendedorId) {
+  const correo = document.getElementById('mu_email').value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { showToast('Escribí un email válido.'); return; }
+  const btn = document.getElementById('muInv'); btn.disabled = true; btn.textContent = 'Invitando...';
+  try {
+    const { data, error } = await sb.functions.invoke('mkt-invitar-vendedor', { body: { email: correo, vendedor_id: vendedorId, sitio: new URL('.', location.href).href } });
+    let msg = data && data.error;
+    if (error && !msg) { try { msg = (await error.context.json()).error; } catch (_) { msg = ''; } }
+    if (error || !data || !data.ok) {
+      if (!msg && error && /Failed to send|Not Found|404|FunctionsFetchError|FunctionsRelayError/i.test(String(error.name || '') + ' ' + String(error.message || '')))
+        msg = 'La invitación automática todavía no está instalada en Supabase (función «mkt-invitar-vendedor»).';
+      throw new Error(msg || 'No se pudo invitar al vendedor.');
+    }
+    await cargarAsociados(); abrirCuentasMkt(vendedorId); renderAsociados();
+    showToast(data.invitada ? `Invitación enviada a ${correo} y cuenta vinculada.` : `${correo} ya tenía cuenta: quedó vinculada.`);
+  } catch (e) { showError(e); btn.disabled = false; btn.textContent = 'Invitar y vincular'; }
 }
 async function vincularCuentaMkt(vendedorId, email, activo = true) {
   const correo = email || document.getElementById('mu_email').value.trim();
@@ -665,11 +716,26 @@ function htmlComprasMkt() {
           · ${(pe.items || []).map(i => `${i.cantidad}× ${esc(i.nombre)}`).join(', ')}
           ${c.estado === 'pago_registrado' && pe.vendedor_id ? (pe.liquidacion_id ? ' · <span class="badge badge-ok">Liquidado</span>'
             : ` · <select aria-label="Entrega de ${esc(pe.numero)}" onchange="entregaMkt('${pe.id}', this.value)">${Object.entries(ENTREGAS_MKT).filter(([k]) => k !== 'cancelado').map(([k, t]) => `<option value="${k}" ${pe.estado_entrega === k ? 'selected' : ''}>${t}</option>`).join('')}</select>`)
-            : pe.vendedor_id ? ' · ' + ENTREGAS_MKT[pe.estado_entrega] : ''}</small>`).join('')}</div>
+            : pe.vendedor_id ? ' · ' + ENTREGAS_MKT[pe.estado_entrega] : ''}
+          ${c.estado === 'pago_registrado' && pe.vendedor_id && enlacePedidoWaMkt(c, pe) ? ` · <a class="btn btn-sm btn-wa" href="${enlacePedidoWaMkt(c, pe)}" target="_blank" rel="noopener">Enviar pedido a ${esc(pe.vendedor_nombre)} por WhatsApp</a>` : ''}</small>`).join('')}</div>
       <div class="promo-acc">
         ${['pendiente_pago', 'vencida'].includes(c.estado) ? `<button class="btn btn-sm btn-primary" onclick="abrirPagoMkt('${c.id}')">Registrar pago</button>` : ''}
         ${['pendiente_pago', 'vencida', 'pago_registrado'].includes(c.estado) ? `<button class="btn btn-sm btn-danger" onclick="anularCompraMkt('${c.id}')">${c.estado === 'pago_registrado' ? 'Anular y devolver' : 'Cancelar'}</button>` : ''}
       </div></div>`).join('') : '<p class="muted-sm">No hay compras con este filtro.</p>'}</div></div>`;
+}
+/* Pedido de UNA tienda (compra con pago registrado) listo para mandarle por WhatsApp a ESE vendedor.
+   Solo lleva lo de su tienda: sus productos, su parte y los datos del cliente para coordinar la entrega. */
+function mensajePedidoVendedorMkt(c, pe) {
+  const items = (pe.items || []).map(i => `• ${i.cantidad} × ${i.nombre}${i.codigo ? ' (' + i.codigo + ')' : ''} — ${fmt(Number(i.subtotal))}`).join('\n');
+  return `Hola ${pe.vendedor_nombre}, te escribo de ELDOSTORE.\n`
+    + `Tenés un pedido PAGADO: ${pe.numero} (compra ${c.numero}).\n\n${items}\n\n`
+    + `Total del pedido: ${fmt(pe.subtotal)}\nComisión ELDOSTORE: ${fmt(pe.comision)}\nPara tu tienda: ${fmt(pe.monto_vendedor)} (se te paga en la liquidación)\n\n`
+    + `Cliente: ${c.cliente_nombre}\nWhatsApp del cliente: ${waVisible(c.cliente_whatsapp)}${c.cliente_zona ? '\nZona: ' + c.cliente_zona : ''}${c.notas ? '\nNotas: ' + c.notas : ''}\n\n`
+    + `Por favor coordiná la entrega con el cliente y avisanos cuando esté entregado.`;
+}
+function enlacePedidoWaMkt(c, pe) {
+  const v = vendedorMkt(pe.vendedor_id); const n = String((v && v.whatsapp) || '').replace(/\D/g, '');
+  return /^\d{10,15}$/.test(n) ? `https://wa.me/${n}?text=${encodeURIComponent(mensajePedidoVendedorMkt(c, pe))}` : '';
 }
 function abrirPagoMkt(id) {
   const c = MKT.compras.find(x => x.id === id); if (!c) return;

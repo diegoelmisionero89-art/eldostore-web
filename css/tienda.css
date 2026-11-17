@@ -594,6 +594,10 @@ body.asp-open .wa-fab,body.asp-open .wa-aviso{display:none!important}
 .as-loc{margin:0;color:var(--muted);font-size:14px}
 .as-desc{margin:0;white-space:pre-line;max-width:70ch}
 .as-wa{margin-top:4px;max-width:340px}
+.as-compartir{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 14px;margin-top:6px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--purple-2);font:inherit;font-weight:700;font-size:14px;cursor:pointer}
+.as-compartir svg{width:18px;height:18px}
+.as-compartir:hover{background:var(--purple-soft)}
+.as-compartir:focus-visible{outline:2px solid var(--purple);outline-offset:2px}
 .as-aviso{margin:12px 0;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:13.5px}
 .as-buscar{display:flex;max-width:420px;margin:0 0 12px}
 .as-buscar input{width:100%}
