@@ -480,12 +480,19 @@ async function confirmarMotivoMkt(obligatorio) {
 }
 
 /* ---- Interruptor y configuración general ---- */
+// 016: las compras pagadas a ELDOSTORE (modalidad A) y el formulario «Quiero vender» son opciones aparte del interruptor.
+const con016Mkt = c => c && 'compras_eldostore' in c;
+function modoMkt(c) {
+  if (!con016Mkt(c)) return 'También el formulario «Quiero vender»' + (MKT.etapaD ? ' y las compras pagadas a ELDOSTORE.' : '.');
+  return (c.compras_eldostore ? 'Compras pagadas a ELDOSTORE (modalidad A).' : 'Modalidad B: cada pedido va al WhatsApp de la tienda, el cliente le paga al vendedor y ELDOSTORE registra la venta y cobra la comisión.')
+    + ` Formulario «Quiero vender»: ${c.formulario_abierto ? 'ABIERTO' : 'cerrado'}.`;
+}
 function htmlMarketplaceMkt() {
   const c = MKT.config;
   if (MKT.etapaD) setTimeout(dibujarFinanzasMkt, 0);
   return `${MKT.etapaD ? '<div id="mktFinanzas"><p class="muted-sm">Calculando el dinero del Marketplace…</p></div>' : ''}<div class="panel">
     <h3>Interruptor del Marketplace</h3>
-    <p style="font-size:1.05rem;margin:8px 0">${c.activo ? '<span class="badge badge-ok">ENCENDIDO</span> La tienda muestra las tiendas asociadas activas y el formulario «Quiero vender».'
+    <p style="font-size:1.05rem;margin:8px 0">${c.activo ? `<span class="badge badge-ok">ENCENDIDO</span> La tienda muestra las tiendas asociadas activas. ${modoMkt(c)}`
       : '<span class="badge badge-pend">APAGADO</span> La tienda pública funciona exactamente como siempre: no se ve nada del Marketplace.'}</p>
     <button class="btn btn-sm ${c.activo ? 'btn-danger' : 'btn-primary'}" ${mktAdmin()} onclick="interruptorMkt(${!c.activo})">${c.activo ? 'Apagar el Marketplace' : 'Encender el Marketplace'}</button>
   </div>
@@ -510,6 +517,9 @@ function htmlMarketplaceMkt() {
     <div class="field"><label>Instrucciones de pago para el cliente (alias / CBU / link)</label><textarea id="mc_pago" rows="3" maxlength="1000">${esc(c.instrucciones_pago || '')}</textarea>
       <small>Se usa en la Etapa D. Es texto público: no pongas contraseñas ni datos privados.</small></div>
     <label class="check-row"><input type="checkbox" id="mc_entregados" ${c.liquidar_solo_entregados ? 'checked' : ''}> Liquidar a los vendedores solo pedidos entregados (Etapa E)</label>
+    ${con016Mkt(c) ? `<label class="check-row"><input type="checkbox" id="mc_compras" ${c.compras_eldostore ? 'checked' : ''}> Compras pagadas a ELDOSTORE (modalidad A: el cliente le paga a ELDOSTORE y ELDOSTORE liquida al vendedor)</label>
+    <p class="muted-sm" style="margin-top:-4px">Apagado = modalidad B: el cliente le paga al vendedor por WhatsApp y vos registrás la venta en «Ventas y comisiones».</p>
+    <label class="check-row"><input type="checkbox" id="mc_form" ${c.formulario_abierto ? 'checked' : ''}> Formulario público «Quiero vender» abierto</label>` : ''}
     <div class="modal-actions" style="justify-content:flex-start"><button class="btn btn-primary btn-sm" ${mktAdmin()} id="mcfgBtn" onclick="guardarConfigMkt()">Guardar configuración</button></div>
     <p class="muted-sm">Última modificación: ${c.actualizado ? fmtDate(c.actualizado) : '—'}</p>
   </div>`;
@@ -538,7 +548,7 @@ async function anularVistaPreviaMkt() {
 }
 async function interruptorMkt(activo) {
   const activos = MKT.vendedores.filter(v => v.estado === 'activo').length;
-  if (activo && !confirm(`¿Encender el Marketplace? La tienda pública va a mostrar ${activos} tienda${activos === 1 ? '' : 's'} activa${activos === 1 ? '' : 's'} y el formulario «Quiero vender».`)) return;
+  if (activo && !confirm(`¿Encender el Marketplace? La tienda pública va a mostrar ${activos} tienda${activos === 1 ? '' : 's'} activa${activos === 1 ? '' : 's'}. ${modoMkt(MKT.config)}`)) return;
   if (!activo && !confirm('¿Apagar el Marketplace? Las tiendas asociadas dejan de verse en la web (no se borra nada).')) return;
   try { await rpcMkt('mkt_guardar_config', { p_datos: { activo } }); renderAsociados(); showToast(activo ? 'Marketplace encendido.' : 'Marketplace apagado.'); }
   catch (e) { showError(e); }
@@ -550,7 +560,8 @@ async function guardarConfigMkt() {
   const btn = document.getElementById('mcfgBtn'); btn.disabled = true;
   try {
     await rpcMkt('mkt_guardar_config', { p_datos: { comision_general_pct: pct, horas_vencimiento: horas,
-      instrucciones_pago: document.getElementById('mc_pago').value.trim(), liquidar_solo_entregados: document.getElementById('mc_entregados').checked } });
+      instrucciones_pago: document.getElementById('mc_pago').value.trim(), liquidar_solo_entregados: document.getElementById('mc_entregados').checked,
+      ...(document.getElementById('mc_compras') ? { compras_eldostore: document.getElementById('mc_compras').checked, formulario_abierto: document.getElementById('mc_form').checked } : {}) } });
     renderAsociados(); showToast('Configuración guardada.');
   } catch (e) { showError(e); btn.disabled = false; }
 }

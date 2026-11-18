@@ -128,6 +128,7 @@
     const prods = Array.isArray(d.productos) ? d.productos : [];
     const publicados = prods.filter(p => p.publicado).length;
     const pedidos = Array.isArray(d.pedidos) ? d.pedidos : [];
+    const ventas = Array.isArray(d.ventas) ? d.ventas : null, com = d.comisiones || {};
     main.innerHTML = `${aviso ? `<p class="vp-msg ok" role="status">${esc(aviso)}</p>` : ""}
       ${d.marketplaceActivo ? "" : '<p class="vp-msg warn">El Marketplace de ELDOSTORE todavía no está abierto al público: por ahora tu tienda y tus productos no se ven en la web.</p>'}
       <section class="vp-card" aria-labelledby="vpT">
@@ -169,7 +170,22 @@
             </div></article>`;
         }).join("") : '<p class="vp-muted">Todavía no hay productos cargados en tu tienda.</p>'}</div>
       </section>
-      <section class="vp-card" aria-labelledby="vpPed">
+      ${ventas ? `<section class="vp-card" aria-labelledby="vpVen">
+        <h2 id="vpVen">Mis ventas y comisiones${ventas.length ? " (" + ventas.length + ")" : ""}</h2>
+        <p class="vp-muted">Los pedidos de la web te llegan a tu WhatsApp. El cliente te paga a vos y vos coordinás la entrega. Avisale a ELDOSTORE cada venta: ELDOSTORE la registra acá, descuenta el stock (no lo descuentes vos) y te cobra la comisión.</p>
+        <div class="vp-datos" style="margin-bottom:12px">
+          <div class="vp-dato"><span>Ventas registradas</span><b>${Number(com.ventas || 0)} · ${money(com.totalVendido || 0)}</b></div>
+          <div class="vp-dato"><span>Comisión pendiente de pagar a ELDOSTORE</span><b>${money(com.pendiente || 0)}</b></div>
+          <div class="vp-dato"><span>Comisión ya pagada</span><b>${money(com.cobrada || 0)}</b></div>
+        </div>
+        ${ventas.length ? `<div class="vp-prods">${ventas.map(s => `<article class="vp-prod" style="display:block${s.anulada ? ";opacity:.6" : ""}">
+            <b>${Number(s.cantidad)} × ${esc(s.producto)}</b> <small class="vp-muted">${esc(s.codigo)} · ${esc(new Date(s.fecha).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }))}</small>
+            ${s.anulada ? '<span class="vp-badge no">Anulada</span>' : s.comisionCobrada ? '<span class="vp-badge ok">Comisión pagada</span>' : '<span class="vp-badge warn">Comisión pendiente</span>'}<br>
+            <small>Venta ${money(s.total)} · comisión ELDOSTORE ${pct(s.comisionPct)} = ${money(s.comision)} · <b>para vos ${money(s.paraVos)}</b>${s.cliente ? " · cliente: " + esc(s.cliente) : ""}</small>
+            ${s.anulada && s.motivoAnulacion ? `<br><small>Motivo: ${esc(s.motivoAnulacion)}</small>` : ""}
+          </article>`).join("")}</div>` : '<p class="vp-muted">Todavía no hay ventas registradas.</p>'}
+      </section>` : ""}
+      ${pedidos.length || d.comprasEldostore || !ventas ? `<section class="vp-card" aria-labelledby="vpPed">
         <h2 id="vpPed">Mis pedidos${pedidos.length ? " (" + pedidos.length + ")" : ""}</h2>
         ${pedidos.length ? `<p class="vp-muted">Pedidos con pago registrado por ELDOSTORE. La entrega y la liquidación las actualiza ELDOSTORE.</p>
           <div class="vp-datos" style="margin-bottom:12px">
@@ -185,7 +201,7 @@
             <small>Cliente: ${esc(p.cliente.nombre)} · WhatsApp ${esc(p.cliente.whatsapp)}${p.cliente.zona ? " · " + esc(p.cliente.zona) : ""}${p.cliente.notas ? " · «" + esc(p.cliente.notas) + "»" : ""}</small>
           </article>`).join("")}</div>`
           : '<p class="vp-muted">Todavía no hay pedidos. Cuando ELDOSTORE habilite las compras, acá vas a ver los pedidos de tu tienda.</p>'}
-      </section>`;
+      </section>` : ""}`;
   }
 
 

@@ -73,8 +73,8 @@
         if (error || !data) { console.info("[ELDOSTORE] Marketplace no disponible: no se muestran tiendas asociadas."); return false; }
       } else {
         if (!data || data.activo !== true) return false;   // interruptor apagado: la tienda queda como siempre
-        D.formulario = true;
-        D.compras = data.compras === true;   // migración 009 instalada y Marketplace encendido
+        D.formulario = "formulario" in data ? data.formulario === true : true;   // 016: el administrador decide si está abierto
+        D.compras = data.compras === true;   // 009 + 016: compras pagadas a ELDOSTORE (modalidad A) solo si están habilitadas
       }
       D.vendedores = (data.vendedores || []).map(v => ({
         id: String(v.id), slug: String(v.slug || ""), nombre: limpiar(v.nombre, 80), descripcion: String(v.descripcion || "").slice(0, 600),
