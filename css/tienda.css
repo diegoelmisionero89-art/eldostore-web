@@ -588,6 +588,8 @@ body.asp-open .wa-fab,body.asp-open .wa-aviso{display:none!important}
 .as-bar .f-cart svg{width:20px;height:20px}
 .as-h1{margin:0;font-size:clamp(22px,2.6vw,30px);line-height:1.2;outline:none;overflow-wrap:anywhere}
 .as-intro{color:var(--muted);margin:6px 0 0;max-width:70ch}
+.as-previa{margin:10px 16px 0;padding:10px 12px;border-radius:10px;background:#fff4e0;border:1px solid #f3d19a;color:#7a4300;font-size:14px;line-height:1.4}
+#asPrevia .as-previa{margin:0 0 12px}
 .as-cab{display:flex;gap:18px;align-items:flex-start;padding:16px;border:1px solid var(--line);border-radius:16px;background:#fff}
 .as-cab-txt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;flex:1}
 .as-sello{margin:0;padding:3px 9px;border-radius:999px;background:var(--purple-soft);color:var(--purple-2);font-size:11.5px;font-weight:800;letter-spacing:.2px}

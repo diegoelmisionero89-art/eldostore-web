@@ -489,6 +489,16 @@ function htmlMarketplaceMkt() {
       : '<span class="badge badge-pend">APAGADO</span> La tienda pública funciona exactamente como siempre: no se ve nada del Marketplace.'}</p>
     <button class="btn btn-sm ${c.activo ? 'btn-danger' : 'btn-primary'}" ${mktAdmin()} onclick="interruptorMkt(${!c.activo})">${c.activo ? 'Apagar el Marketplace' : 'Encender el Marketplace'}</button>
   </div>
+  ${c.activo ? '' : `<div class="panel" id="mktPrevia">
+    <h3>Vista previa privada</h3>
+    <p class="muted-sm">Un enlace secreto para ver «Tiendas asociadas» como se verá en la tienda, con el Marketplace apagado. Muestra solo tiendas activas y productos aprobados, <b>sin compras ni cobros</b> y sin el formulario «Quiero vender». Las consultas y los pedidos van por WhatsApp a cada tienda. Nadie más lo ve si no le pasás el enlace.</p>
+    <div class="modal-actions" style="justify-content:flex-start;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" ${mktAdmin()} onclick="vistaPreviaMkt(false)">Ver enlace de vista previa</button>
+      <button class="btn btn-sm" ${mktAdmin()} onclick="vistaPreviaMkt(true)">Generar un enlace nuevo (anula el anterior)</button>
+      <button class="btn btn-sm btn-danger" ${mktAdmin()} onclick="anularVistaPreviaMkt()">Anular el enlace</button>
+    </div>
+    <div id="mktPreviaRes"></div>
+  </div>`}
   <div class="panel">
     <h3>Configuración</h3>
     <div class="two-col">
@@ -503,6 +513,28 @@ function htmlMarketplaceMkt() {
     <div class="modal-actions" style="justify-content:flex-start"><button class="btn btn-primary btn-sm" ${mktAdmin()} id="mcfgBtn" onclick="guardarConfigMkt()">Guardar configuración</button></div>
     <p class="muted-sm">Última modificación: ${c.actualizado ? fmtDate(c.actualizado) : '—'}</p>
   </div>`;
+}
+/* Vista previa privada (migración 014): enlace secreto con ?vista=<clave>. Solo el administrador. */
+async function vistaPreviaMkt(nueva) {
+  const res = document.getElementById('mktPreviaRes'); if (!res) return;
+  res.innerHTML = '<p class="muted-sm">Preparando el enlace…</p>';
+  const { data, error } = await sb.rpc('mkt_vista_previa_enlace', { p_nueva: !!nueva });
+  if (error) { res.innerHTML = `<div class="notice">${esc(/mkt_vista_previa_enlace/.test(error.message || '') ? 'Falta instalar la migración 014.' : (error.message || 'No se pudo crear el enlace.'))}</div>`; return; }
+  const enlace = new URL('.', location.href).href + '?vista=' + encodeURIComponent(data.clave) + '#tiendas';
+  res.innerHTML = `<div class="field" style="margin-top:10px"><label for="mktPreviaUrl">Enlace privado${nueva ? ' (nuevo: el anterior ya no funciona)' : ''}</label>
+    <input id="mktPreviaUrl" readonly value="${esc(enlace)}" onclick="this.select()"><small>Creado el ${fmtDate(data.creada)}. Pasalo solo a quien tenga que revisar (por ejemplo, el vendedor de prueba).</small></div>
+    <div class="modal-actions" style="justify-content:flex-start">
+      <button class="btn btn-sm btn-primary" onclick="copiarVistaPreviaMkt()">Copiar enlace</button>
+      <a class="btn btn-sm" href="${esc(enlace)}" target="_blank" rel="noopener noreferrer">Abrir vista previa</a></div>`;
+}
+async function copiarVistaPreviaMkt() {
+  const i = document.getElementById('mktPreviaUrl'); if (!i) return;
+  showToast(await copiarTextoMkt(i.value) ? 'Enlace de vista previa copiado' : 'Seleccioná el enlace y copialo');
+}
+async function anularVistaPreviaMkt() {
+  const res = document.getElementById('mktPreviaRes');
+  const { error } = await sb.rpc('mkt_vista_previa_anular');
+  if (res) res.innerHTML = error ? `<div class="notice">${esc(error.message || 'No se pudo anular.')}</div>` : '<p class="muted-sm"><b>Enlace anulado:</b> la vista previa ya no se puede abrir con ningún enlace anterior.</p>';
 }
 async function interruptorMkt(activo) {
   const activos = MKT.vendedores.filter(v => v.estado === 'activo').length;

@@ -56,8 +56,18 @@
     if (!window.supabase || !CFG.supabaseUrl) return false;
     try {
       sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } });
-      let { data, error } = await sb.rpc("mkt_tienda_publica");
-      if (error) {   // sin la 008: la función de la 006 (sin interruptor ni formulario)
+      // Vista previa PRIVADA (migración 014): con ?vista=<clave> muestra las tiendas aunque el Marketplace esté
+      // apagado, SIN compras ni formulario «Quiero vender». Sin clave válida, la tienda queda como siempre.
+      let data = null, error = null;
+      const clave = (new URLSearchParams(location.search).get("vista") || "").toLowerCase();
+      if (/^[0-9a-f]{64}$/.test(clave)) {
+        const r = await sb.rpc("mkt_tienda_vista_previa", { p_clave: clave });
+        if (!r.error && r.data && r.data.activo === true && r.data.vistaPrevia === true) { data = r.data; D.vistaPrevia = true; }
+      }
+      if (D.vistaPrevia) {
+        D.formulario = false; D.compras = false;
+      } else ({ data, error } = await sb.rpc("mkt_tienda_publica"));
+      if (D.vistaPrevia) { /* datos de la vista previa */ } else if (error) {   // sin la 008: la función de la 006 (sin interruptor ni formulario)
         ({ data, error } = await sb.rpc("tiendas_asociadas"));
         if (error || !data) { console.info("[ELDOSTORE] Marketplace no disponible: no se muestran tiendas asociadas."); return false; }
       } else {
@@ -169,10 +179,14 @@
     const link = $("#asLinkMenu"); if (link) link.hidden = !vs.length;
     const ver = sec.querySelector(".as-ver"); if (ver) ver.hidden = !vs.length;
     if (sec.hidden) return;
+    let cartel = $("#asPrevia");
+    if (D.vistaPrevia && !cartel) { cartel = document.createElement("div"); cartel.id = "asPrevia"; cartel.innerHTML = CARTEL_PREVIA; $("#asLista").before(cartel); }
     $("#asLista").innerHTML = vs.slice(0, 8).map(tarjetaTienda).join("") +
       (vs.length > 8 ? `<a class="as-tienda as-todas" href="#tiendas"><span class="as-tienda-txt"><b>Ver las ${vs.length} tiendas</b></span><span class="as-ir" aria-hidden="true">›</span></a>` : "") +
       (D.formulario ? `<a class="as-tienda as-todas as-vender" href="#quiero-vender"><span class="as-tienda-txt"><b>¿Tenés un emprendimiento?</b><small>Quiero vender en ELDOSTORE</small></span><span class="as-ir" aria-hidden="true">›</span></a>` : "");
   }
+
+  const CARTEL_PREVIA = '<p class="as-previa" role="note"><b>Vista previa privada</b> · no visible al público. Sin compras ni cobros: las consultas y los pedidos van por WhatsApp a cada tienda.</p>';
 
   /* ---------- Página propia (superpuesta) ---------- */
   const pag = document.createElement("section");
@@ -196,7 +210,7 @@
       <button type="button" class="f-back" data-as="volver" aria-label="Volver">${ATRAS}<span>Volver</span></button>
       <span class="as-bar-t">${esc(titulo)}</span>
       ${D.compras ? botonCompra() : v ? `<button type="button" class="f-cart" data-as="pedido" aria-label="Ver pedido a ${esc(v.nombre)}: ${u} artículos, ${money(t)}">${TIENDA_SVG}<span class="cart-count">${u}</span><span>${money(t)}</span></button>` : "<span></span>"}
-    </div>`;
+    </div>${D.vistaPrevia ? CARTEL_PREVIA : ""}`;
   }
   function cardHTML(v, p, conTienda) {
     const ok = comprable(p) && !conTienda, q = qCard.get(p.id) || 1, en = (pedidos[v.slug] || {})[p.id] || 0;
@@ -552,6 +566,11 @@
     const enlace = location.origin + location.pathname + "#tiendas/" + encodeURIComponent(v.slug) + (p ? "/" + encodeURIComponent(p.codigo) : "");
     const titulo = p ? p.nombre + " · " + v.nombre : v.nombre + " · Tienda asociada a ELDOSTORE";
     const texto = p ? `Mirá ${p.nombre}${p.precio ? " (" + money(p.precio) + ")" : ""} en ${v.nombre}, tienda asociada a ELDOSTORE` : `Mirá la tienda ${v.nombre} en ELDOSTORE`;
+    if (D.vistaPrevia) {   // en la vista previa se copia el enlace PÚBLICO (sin la clave) y se avisa que todavía no funciona
+      try { await navigator.clipboard.writeText(enlace); toast("<b>Enlace público copiado.</b> Va a funcionar cuando lances Tiendas asociadas."); }
+      catch (e) { toast("Enlace público: " + esc(enlace)); }
+      return;
+    }
     if (navigator.share) { try { await navigator.share({ title: titulo, text: texto, url: enlace }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
     try { await navigator.clipboard.writeText(enlace); toast("<b>Enlace copiado.</b> Pegalo en WhatsApp o en tus redes."); }
     catch (e) { toast("Copiá este enlace: " + esc(enlace)); }
@@ -565,7 +584,8 @@
   }
   function mostrar(r, nuevo) {
     const v = r.slug ? D.porSlug.get(r.slug) : null;
-    if (r.vender) dibujarFormulario();
+    if (r.vender && D.formulario) dibujarFormulario();
+    else if (r.vender) dibujarTodas();   // vista previa: el formulario «Quiero vender» no se ofrece
     else if (r.compra !== undefined) dibujarMiCompra(r.compra);
     else if (!r.slug) dibujarTodas();
     else if (!v) pag.innerHTML = barra("Tiendas asociadas") + `<div class="f-wrap"><div class="state"><b>Esta tienda no está disponible.</b>Puede que ya no esté publicada.<br><a class="cta" href="#tiendas">Ver las tiendas asociadas</a></div></div>`;
