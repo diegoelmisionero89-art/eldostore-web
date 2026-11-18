@@ -689,12 +689,12 @@ async function invitarCuentaMkt(vendedorId, emailExistente) {
   } catch (e) { showError(e); if (btn) { btn.disabled = false; btn.textContent = 'Crear enlace de invitación'; } }
 }
 function mensajeInvitacionMkt(v, data) {
-  return `Hola ${v.nombre}, soy Diego de ELDOSTORE.\n`
+  return `Hola ${v.nombre}, ¡somos ELDOSTORE!\n`
     + `Este es tu acceso al portal de vendedores de ELDOSTORE, donde vas a ver tu tienda, tus productos y tus pedidos.\n\n`
     + `1. Abrí este enlace: ${data.enlace}\n`
     + `2. Elegí tu contraseña (mínimo 8 caracteres).\n`
     + `3. Después entrás siempre desde ${new URL('vendedor.html', location.href).href} con tu email y esa contraseña.\n\n`
-    + `El enlace es personal, sirve una sola vez y vence en 1 hora: no lo compartas. Si venció, avisame y te mando otro.`;
+    + `El enlace es personal, sirve una sola vez y vence en 1 hora: no lo compartas. Si venció, avisanos y te enviaremos otro.`;
 }
 function mostrarEnlaceInvitacionMkt(vendedorId, correo, data) {
   const v = vendedorMkt(vendedorId); const caja = document.getElementById('muEnlace'); if (!v || !caja) return;
@@ -794,7 +794,7 @@ function htmlComprasMkt() {
    Solo lleva lo de su tienda: sus productos, su parte y los datos del cliente para coordinar la entrega. */
 function mensajePedidoVendedorMkt(c, pe) {
   const items = (pe.items || []).map(i => `• ${i.cantidad} × ${i.nombre}${i.codigo ? ' (' + i.codigo + ')' : ''} — ${fmt(Number(i.subtotal))}`).join('\n');
-  return `Hola ${pe.vendedor_nombre}, te escribo de ELDOSTORE.\n`
+  return `Hola ${pe.vendedor_nombre}, ¡somos ELDOSTORE!\n`
     + `Tenés un pedido PAGADO: ${pe.numero} (compra ${c.numero}).\n\n${items}\n\n`
     + `Total del pedido: ${fmt(pe.subtotal)}\nComisión ELDOSTORE: ${fmt(pe.comision)}\nPara tu tienda: ${fmt(pe.monto_vendedor)} (se te paga en la liquidación)\n\n`
     + `Cliente: ${c.cliente_nombre}\nWhatsApp del cliente: ${waVisible(c.cliente_whatsapp)}${c.cliente_zona ? '\nZona: ' + c.cliente_zona : ''}${c.notas ? '\nNotas: ' + c.notas : ''}\n\n`
