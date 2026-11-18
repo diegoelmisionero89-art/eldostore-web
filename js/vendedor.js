@@ -37,6 +37,24 @@
   if (!window.supabase || !CFG.supabaseUrl) { main.innerHTML = '<div class="vp-card"><p class="vp-msg err">No se pudo cargar el portal. Probá de nuevo en un rato.</p></div>'; return; }
   const sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { storageKey: "eldostore-vendedor", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
   const vieneDeInvitacion = /type=(invite|recovery)/.test(location.hash);
+  // Enlace de invitación v3: vendedor.html#invitacion=<código>&tipo=invite|recovery. El código se valida SOLO cuando la
+  // persona toca «Crear mi contraseña» (verifyOtp por POST). Abrir o «mirar» el enlace (la vista previa de WhatsApp,
+  // un antivirus, el navegador) no lo gasta: el código va después de «#» y nunca llega a ningún servidor al abrir la página.
+  let INV = (() => {
+    const h = new URLSearchParams(location.hash.slice(1));
+    const token = h.get("invitacion") || "", tipo = h.get("tipo") || "";
+    return /^[0-9a-f]{40,128}$/i.test(token) && /^(invite|recovery)$/.test(tipo) ? { token, tipo, validado: false } : null;
+  })();
+  const VENCIDO = "El enlace venció o ya se usó. Pedile a ELDOSTORE uno nuevo.";
+  // Si el enlace se abre en una pestaña que ya tenía el portal, el navegador solo cambia lo que va después de «#»: se recarga.
+  window.addEventListener("hashchange", () => { if (/[#&]invitacion=/.test(location.hash)) location.reload(); });
+  function errorClave(error) {
+    const t = String((error && (error.code || "")) + " " + (error && error.message || ""));
+    if (/weak_password|pwned|weak|easy to guess/i.test(t)) return "Esa contraseña es muy común o apareció en filtraciones de datos. Elegí otra.";
+    if (/same_password|different from the old/i.test(t)) return "Elegí una contraseña distinta de la anterior.";
+    if (/at least|characters|too short/i.test(t)) return "La contraseña tiene que tener al menos 8 caracteres.";
+    return (error && error.message) || "No se pudo guardar la contraseña. Probá de nuevo.";
+  }
 
   function contacto(texto) {
     return CFG.whatsapp ? `<a href="https://wa.me/${esc(CFG.whatsapp)}?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener noreferrer">escribile a ELDOSTORE por WhatsApp</a>` : "escribile a ELDOSTORE";
@@ -58,14 +76,16 @@
     </div>`;
   }
   function pantallaContrasena() {
+    const nueva = INV && INV.tipo === "invite";
+    $("#vpSalir").classList.add("vp-hidden");
     main.innerHTML = `<div class="vp-card">
-      <h1>Elegí tu contraseña</h1>
-      <p class="vp-muted">Vas a usarla para entrar al portal de vendedores.</p>
+      <h1>${nueva ? "Creá tu contraseña" : "Elegí tu contraseña"}</h1>
+      <p class="vp-muted">Vas a usarla para entrar al portal de vendedores.${INV ? " Tu acceso se activa cuando tocás el botón." : ""}</p>
       <p class="vp-msg err vp-hidden" id="vpErr" role="alert"></p>
       <form class="vp-form" id="vpNueva">
         <label for="vpN1">Contraseña nueva (mínimo 8 caracteres)<input id="vpN1" type="password" autocomplete="new-password" minlength="8" required></label>
         <label for="vpN2">Repetila<input id="vpN2" type="password" autocomplete="new-password" minlength="8" required></label>
-        <button class="vp-btn" type="submit" id="vpGuardar">Guardar contraseña</button>
+        <button class="vp-btn" type="submit" id="vpGuardar">${nueva ? "Crear mi contraseña" : "Guardar mi contraseña"}</button>
       </form></div>`;
   }
   main.addEventListener("submit", async e => {
@@ -81,9 +101,21 @@
       const mal = m => { err.textContent = m; err.classList.remove("vp-hidden"); };
       if (a.length < 8) return mal("La contraseña tiene que tener al menos 8 caracteres.");
       if (a !== b2) return mal("Las dos contraseñas no coinciden.");
-      const btn = $("#vpGuardar"); btn.disabled = true; btn.textContent = "Guardando…";
+      const btn = $("#vpGuardar"), texto = btn.textContent; btn.disabled = true; btn.textContent = "Guardando…";
+      const listo = () => { btn.disabled = false; btn.textContent = texto; };
+      if (INV && !INV.validado) {
+        // Recién acá se usa el enlace (una sola vez). Si falla la contraseña después, se reintenta sin volver a validarlo.
+        const v = await sb.auth.verifyOtp({ token_hash: INV.token, type: INV.tipo });
+        if (v.error || !v.data || !v.data.session) {
+          const caido = v.error && (v.error.status === 403 || /otp_expired|expired|invalid|not found/i.test(String(v.error.code || "") + " " + v.error.message));
+          if (caido || !v.error) { INV = null; history.replaceState(null, "", location.pathname); pantallaIngreso(VENCIDO); return; }
+          listo(); return mal("No se pudo validar el enlace. Revisá tu conexión y probá de nuevo.");
+        }
+        INV.validado = true;
+      }
       const { error } = await sb.auth.updateUser({ password: a });
-      if (error) { btn.disabled = false; btn.textContent = "Guardar contraseña"; return mal(error.message); }
+      if (error) { listo(); return mal(errorClave(error)); }
+      INV = null;
       history.replaceState(null, "", location.pathname);
       iniciar("Contraseña guardada.");
     }
@@ -303,8 +335,9 @@
   const errorEnlace = /error_code=|[#&]error=/.test(location.hash);
   if (errorEnlace) history.replaceState(null, "", location.pathname);
   async function iniciar(aviso) {
+    if (INV && !aviso) { pantallaContrasena(); return; }
     const { data: s } = await sb.auth.getSession();
-    if (errorEnlace && !s.session) { pantallaIngreso("El enlace venció o ya se usó. Pedile a ELDOSTORE uno nuevo."); return; }
+    if (errorEnlace && !s.session) { pantallaIngreso(VENCIDO); return; }
     if (!s.session) { pantallaIngreso(); return; }
     if (vieneDeInvitacion && !aviso) { pantallaContrasena(); return; }
     $("#vpSalir").classList.remove("vp-hidden");

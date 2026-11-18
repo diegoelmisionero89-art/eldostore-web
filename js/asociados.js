@@ -653,7 +653,7 @@ function abrirCuentasMkt(id) {
     <p class="muted-sm">Con su cuenta, el vendedor entra a <b>vendedor.html</b> y ve SOLO su tienda, sus productos y sus pedidos. No puede modificar nada ni entrar a este panel.</p>
     ${cuentas.length ? `<div class="promo-list">${cuentas.map(c => `<div class="promo-item${c.activo ? '' : ' off'}"><div class="promo-meta"><strong>${esc(c.email)} ${c.activo ? '<span class="badge badge-ok">Activa</span>' : '<span class="badge badge-pend">Desactivada</span>'}</strong>
         <small>Vinculada el ${fmtDate(c.creado)}</small></div>
-      <div class="promo-acc">${c.activo ? `<button class="btn btn-sm" onclick="invitarCuentaMkt('${id}', '${esc(c.email)}')" title="Para que elija (o vuelva a elegir) su contraseña">Nuevo enlace</button>` : ''}
+      <div class="promo-acc">${c.activo ? `<button class="btn btn-sm" data-nuevo-enlace onclick="invitarCuentaMkt('${id}', '${esc(c.email)}')" title="Para que elija (o vuelva a elegir) su contraseña">Nuevo enlace</button>` : ''}
         <button class="btn btn-sm" onclick="activarCuentaMkt('${c.user_id}', ${!c.activo})">${c.activo ? 'Desactivar' : 'Reactivar'}</button>
         <button class="btn btn-sm btn-danger" onclick="desvincularCuentaMkt('${c.user_id}')">Desvincular</button></div></div>`).join('')}</div>` : '<p class="muted-sm">Todavía no tiene cuenta de acceso.</p>'}
     <div id="muEnlace"></div>
@@ -669,12 +669,15 @@ function abrirCuentasMkt(id) {
 /* Enlace de invitación (función de Supabase «mkt-invitar-vendedor», v2): NO envía correos. Genera un enlace de un solo
    uso para que el vendedor cree su contraseña, deja la cuenta vinculada a ESTA tienda y el panel lo muestra para copiar
    o mandar por WhatsApp. El enlace no se guarda en ningún lado: si se pierde, se genera otro. */
-let mktUltimoEnlace = null;
+let mktUltimoEnlace = null, mktInvitando = false;
 async function invitarCuentaMkt(vendedorId, emailExistente) {
+  if (mktInvitando) return;   // un toque = un enlace (dos toques seguidos generaban dos y anulaban el primero)
   const campo = document.getElementById('mu_email');
   const correo = (emailExistente || (campo ? campo.value : '')).trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { showToast('Escribí un email válido.'); return; }
   const btn = document.getElementById('muInv'); if (btn) { btn.disabled = true; btn.textContent = 'Creando enlace...'; }
+  mktInvitando = true;
+  document.querySelectorAll('[data-nuevo-enlace]').forEach(b => { b.disabled = true; });
   try {
     const { data, error } = await sb.functions.invoke('mkt-invitar-vendedor', { body: { email: correo, vendedor_id: vendedorId, sitio: new URL('.', location.href).href } });
     let msg = data && data.error;
@@ -687,12 +690,13 @@ async function invitarCuentaMkt(vendedorId, emailExistente) {
     await cargarAsociados(); renderAsociados(); abrirCuentasMkt(vendedorId);
     mostrarEnlaceInvitacionMkt(vendedorId, correo, data);
   } catch (e) { showError(e); if (btn) { btn.disabled = false; btn.textContent = 'Crear enlace de invitación'; } }
+  finally { mktInvitando = false; document.querySelectorAll('[data-nuevo-enlace]').forEach(b => { b.disabled = false; }); }
 }
 function mensajeInvitacionMkt(v, data) {
   return `Hola ${v.nombre}, ¡somos ELDOSTORE!\n`
     + `Este es tu acceso al portal de vendedores de ELDOSTORE, donde vas a ver tu tienda, tus productos y tus pedidos.\n\n`
     + `1. Abrí este enlace: ${data.enlace}\n`
-    + `2. Elegí tu contraseña (mínimo 8 caracteres).\n`
+    + `2. Elegí tu contraseña (mínimo 8 caracteres) y tocá «${data.cuentaNueva ? 'Crear mi contraseña' : 'Guardar mi contraseña'}».\n`
     + `3. Después entrás siempre desde ${new URL('vendedor.html', location.href).href} con tu email y esa contraseña.\n\n`
     + `El enlace es personal, sirve una sola vez y vence en 1 hora: no lo compartas. Si venció, avisanos y te enviaremos otro.`;
 }
