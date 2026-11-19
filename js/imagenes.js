@@ -12,8 +12,10 @@
      (o PNG si es una imagen de categoría con fondo transparente).
    - Si la imagen no se puede leer (por ejemplo HEIC en una PC), no se sube
      nada: se avisa y el formulario queda como estaba.
-   - Si no se puede convertir pero el original es JPG/PNG/WebP de hasta 5 MB,
-     se avisa y se sube el original sin cambios.
+   - Fotos muy detalladas (cámara del celular): si quedan en más de 300 KB,
+     se bajan de a poco a 76 % y 70 % de calidad (nunca menos) hasta ~300 KB.
+   - Si no se puede convertir pero el original es JPG/PNG/WebP de hasta 2 MB,
+     se avisa y se sube el original sin cambios (más pesado: se rechaza).
    - Nunca modifica fotos que ya están en Supabase.
    ========================================================================== */
 
@@ -27,7 +29,9 @@ const IMG_TIPOS = {
 };
 const IMG_CALIDAD = 0.82;
 const IMG_MAX_ENTRADA = 15 * 1024 * 1024;   // lo que se puede elegir
-const IMG_MAX_ORIGINAL = 5 * 1024 * 1024;   // lo máximo que se sube sin convertir
+const IMG_MAX_ORIGINAL = 2 * 1024 * 1024;   // lo máximo que se sube sin convertir (antes 5 MB)
+const IMG_OBJETIVO = 300 * 1024;            // por encima de esto se baja un poco la calidad…
+const IMG_CALIDADES_EXTRA = [0.76, 0.70];   // …de a poco y nunca por debajo de 70 %
 const IMG_FORMATOS_WEB = ['image/jpeg', 'image/png', 'image/webp'];
 
 function fmtBytes(n) {
@@ -126,7 +130,7 @@ async function optimizarImagen(archivo, tipo) {
     try { c = dibujarAchicada(img, ancho, alto, false); }
     catch (e) { return originalComoRespaldo(archivo, 'No se pudo optimizar la imagen.'); }
 
-    let blob = await aBlob(c, 'image/webp', IMG_CALIDAD), mime = 'image/webp', ext = 'webp', formato = 'WebP';
+    let blob = await aBlob(c, 'image/webp', IMG_CALIDAD), mime = 'image/webp', ext = 'webp', formato = 'WebP', final = c;
     if (!blob || blob.type !== 'image/webp') {
       // Safari: sin WebP. JPEG con fondo blanco, o PNG si es categoría con transparencia.
       if (cfg.transparencia && tieneTransparencia(c)) {
@@ -134,9 +138,16 @@ async function optimizarImagen(archivo, tipo) {
       } else {
         const blanco = dibujarAchicada(img, ancho, alto, true);
         blob = await aBlob(blanco, 'image/jpeg', IMG_CALIDAD); mime = 'image/jpeg'; ext = 'jpg'; formato = 'JPEG';
-        blanco.width = blanco.height = 0;
+        final = blanco;
       }
     }
+    // Fotos muy detalladas: un poco menos de calidad hasta ~300 KB (no se nota a este tamaño y ahorra espacio).
+    for (const q of IMG_CALIDADES_EXTRA) {
+      if (mime === 'image/png' || !blob || blob.size <= IMG_OBJETIVO) break;
+      const otro = await aBlob(final, mime, q);
+      if (otro && otro.type === mime && otro.size < blob.size) blob = otro; else break;
+    }
+    if (final !== c) final.width = final.height = 0;
     c.width = c.height = 0;
     if (!blob || !blob.size || blob.type !== mime) return originalComoRespaldo(archivo, 'No se pudo optimizar la imagen.');
 
