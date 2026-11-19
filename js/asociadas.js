@@ -176,15 +176,17 @@
   function dibujarSeccion() {
     const sec = $("#asociadas"); if (!sec) return;
     const vs = conProductos();
-    sec.hidden = !vs.length && !D.formulario;
+    // «Quiero vender» (sección de la portada y enlace del menú): solo con el formulario abierto desde el panel.
+    const cta = $("#venderCta"); if (cta) cta.hidden = !D.formulario;
+    for (const id of ["#venderLinkMenu", "#venderLinkHdr"]) { const l = $(id); if (l) l.hidden = !D.formulario; }
+    sec.hidden = !vs.length;
     const link = $("#asLinkMenu"); if (link) link.hidden = !vs.length;
     const ver = sec.querySelector(".as-ver"); if (ver) ver.hidden = !vs.length;
     if (sec.hidden) return;
     let cartel = $("#asPrevia");
     if (D.vistaPrevia && !cartel) { cartel = document.createElement("div"); cartel.id = "asPrevia"; cartel.innerHTML = CARTEL_PREVIA; $("#asLista").before(cartel); }
     $("#asLista").innerHTML = vs.slice(0, 8).map(tarjetaTienda).join("") +
-      (vs.length > 8 ? `<a class="as-tienda as-todas" href="#tiendas"><span class="as-tienda-txt"><b>Ver las ${vs.length} tiendas</b></span><span class="as-ir" aria-hidden="true">›</span></a>` : "") +
-      (D.formulario ? `<a class="as-tienda as-todas as-vender" href="#quiero-vender"><span class="as-tienda-txt"><b>¿Tenés un emprendimiento?</b><small>Quiero vender en ELDOSTORE</small></span><span class="as-ir" aria-hidden="true">›</span></a>` : "");
+      (vs.length > 8 ? `<a class="as-tienda as-todas" href="#tiendas"><span class="as-tienda-txt"><b>Ver las ${vs.length} tiendas</b></span><span class="as-ir" aria-hidden="true">›</span></a>` : "");
   }
 
   const CARTEL_PREVIA = '<p class="as-previa" role="note"><b>Vista previa privada</b> · no visible al público. Sin compras ni cobros: las consultas y los pedidos van por WhatsApp a cada tienda.</p>';
@@ -312,20 +314,26 @@
     }
     pag.innerHTML = barra("Quiero vender") + `<div class="f-wrap as-form-wrap">
       <h1 class="as-h1" id="asTitulo" tabindex="-1">Quiero vender en ELDOSTORE</h1>
-      <p class="as-intro">Dejanos tus datos y te escribimos por WhatsApp para contarte cómo funciona. Enviar la solicitud no te compromete a nada.</p>
-      ${enviado ? `<div class="as-ok" role="status"><b>¡Recibimos tu solicitud!</b> Te vamos a escribir por WhatsApp.</div>` : `
+      <p class="as-intro">Completá tus datos y te escribiremos por WhatsApp para contarte cómo funciona. Enviar la solicitud no te compromete a nada.</p>
+      <ul class="vc-puntos as-cond">
+        <li>Comisión del 10&nbsp;% sobre lo que vendés.</li>
+        <li>El cliente te paga directamente a vos y vos coordinás la entrega.</li>
+        <li>Nos informás tus ventas y nosotros llevamos el control de las comisiones.</li>
+        <li>Si no tenés tiempo o conocimientos técnicos, podemos cargar tus productos y fotos por vos.</li>
+      </ul>
+      ${enviado ? `<div class="as-ok" role="status" tabindex="-1"><b>¡Recibimos tu solicitud!</b><br>Quedó pendiente de revisión. Te escribiremos por WhatsApp para contarte los próximos pasos.</div>` : `
       <form class="fields as-form" id="asForm" novalidate>
-        <label for="avTienda">Nombre de tu tienda o emprendimiento *<input id="avTienda" maxlength="80" required autocomplete="organization"></label>
-        <label for="avNombre">Tu nombre *<input id="avNombre" maxlength="80" required autocomplete="name"></label>
+        <label for="avNombre">Nombre y apellido *<input id="avNombre" maxlength="80" required autocomplete="name"></label>
+        <label for="avTienda">Nombre de tu negocio o emprendimiento *<input id="avTienda" maxlength="80" required autocomplete="organization"></label>
         <label for="avWa">WhatsApp *<input id="avWa" inputmode="tel" maxlength="20" required placeholder="Ej.: 3751 112233" autocomplete="tel"></label>
+        <label for="avLoc">Localidad *<input id="avLoc" maxlength="80" required placeholder="Ej.: Eldorado" autocomplete="address-level2"></label>
+        <label for="avRubro">¿Qué productos querés vender? *<input id="avRubro" maxlength="80" required placeholder="Ej.: ropa, velas artesanales, mates"></label>
+        <label for="avMsg">Descripción breve de tu emprendimiento *<textarea id="avMsg" rows="4" maxlength="1000" required placeholder="Contanos qué hacés, hace cuánto y cómo entregás hoy."></textarea></label>
         <label for="avEmail">Email (opcional)<input id="avEmail" type="email" maxlength="120" autocomplete="email"></label>
-        <label for="avLoc">Localidad<input id="avLoc" maxlength="80" placeholder="Ej.: Eldorado"></label>
-        <label for="avRubro">¿Qué vendés?<input id="avRubro" maxlength="80" placeholder="Ej.: velas artesanales, ropa, mates"></label>
-        <label for="avMsg">Mensaje (opcional)<textarea id="avMsg" rows="3" maxlength="1000"></textarea></label>
         <label class="as-trampa" aria-hidden="true">No completar<input id="avWeb" tabindex="-1" autocomplete="off"></label>
         <p class="status" id="avEstado" role="alert" hidden></p>
         <button class="send" type="submit" id="avEnviar">Enviar solicitud</button>
-        <p class="legal">Usamos estos datos solo para contactarte sobre tu solicitud.</p>
+        <p class="legal">Usamos estos datos solo para contactarte sobre tu solicitud. Ninguna tienda se publica sin revisión.</p>
       </form>`}</div>`;
   }
   function waIntl(v) {
@@ -344,9 +352,12 @@
     const datos = { nombre_tienda: limpiar(val("avTienda"), 80), responsable: limpiar(val("avNombre"), 80), whatsapp: waIntl(val("avWa")),
       email: limpiar(val("avEmail"), 120), localidad: limpiar(val("avLoc"), 80), rubro: limpiar(val("avRubro"), 80),
       mensaje: String(val("avMsg")).trim().slice(0, 1000), web: val("avWeb") };
-    if (datos.nombre_tienda.length < 2) return err("Escribí el nombre de tu tienda.");
-    if (datos.responsable.length < 2) return err("Escribí tu nombre.");
+    if (datos.responsable.length < 3) return err("Escribí tu nombre y apellido.");
+    if (datos.nombre_tienda.length < 2) return err("Escribí el nombre de tu negocio o emprendimiento.");
     if (!/^\d{10,15}$/.test(datos.whatsapp)) return err("Revisá el WhatsApp: código de área y número, por ejemplo 3751 112233.");
+    if (datos.localidad.length < 2) return err("Escribí tu localidad.");
+    if (datos.rubro.length < 3) return err("Contanos qué productos querés vender.");
+    if (datos.mensaje.length < 10) return err("Escribí una descripción breve de tu emprendimiento (al menos 10 letras).");
     if (datos.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(datos.email)) return err("Revisá el email.");
     btn.disabled = true; btn.textContent = "Enviando…"; est.hidden = true;
     try {

@@ -656,3 +656,38 @@ body.asp-open .wa-fab,body.asp-open .wa-aviso{display:none!important}
 .as-ped ul{margin:0;padding:0;list-style:none}.as-ped li{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:14px;border-top:1px dashed var(--line)}
 .as-ped-sub{margin:6px 0 0;font-size:13px;color:var(--muted)}
 .as-cancelar{min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--muted);font-weight:700;cursor:pointer}
+
+/* ==========================================================================
+   «Quiero vender»: sección de la portada y enlace del menú (solo con el formulario abierto)
+   ========================================================================== */
+.vender-cta{padding:26px 0}
+.vc-box{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:26px 28px;border-radius:calc(var(--r) + 6px);
+  background:radial-gradient(120% 140% at 100% 0,rgba(244,200,79,.22),transparent 55%),var(--ink);color:#fff;border:1px solid var(--ink-line)}
+.vc-txt{min-width:0}
+.vc-sello{margin:0 0 6px;color:var(--gold);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.vc-box h2{margin:0 0 12px;font-size:23px;line-height:1.2;max-width:30ch;color:#fff}
+.vc-puntos{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:14.5px;line-height:1.4}
+.vc-puntos li{position:relative;padding-left:22px}
+.vc-puntos li::before{content:"✓";position:absolute;left:0;top:0;color:var(--gold);font-weight:900}
+.vc-box .vc-puntos{color:rgba(255,255,255,.86)}
+.vc-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:999px;
+  background:var(--gold);color:var(--ink);font-weight:900;font-size:16px;text-decoration:none;white-space:nowrap;box-shadow:0 6px 18px rgba(244,200,79,.25)}
+.vc-btn:hover{background:var(--gold-3)}
+.vc-btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.as-cond{margin:14px 0 4px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--purple-soft);color:var(--text)}
+.as-cond li::before{color:var(--purple-2)}
+.drawer-ft .menu-vender{font-weight:800;color:var(--purple-2)}
+.hdr-vender{flex:none;display:inline-flex;align-items:center;height:46px;padding:0 16px;border-radius:18px;background:var(--gold);color:var(--ink);
+  font-weight:800;font-size:15px;text-decoration:none;white-space:nowrap}
+.hdr-vender[hidden]{display:none}
+.hdr-vender:hover{background:var(--gold-3)}
+.hdr-vender:focus-visible{outline:2px solid #fff;outline-offset:2px}
+@media (max-width:650px){
+  .hdr-vender{height:40px;padding:0 9px;border-radius:14px;font-size:11.5px;line-height:1.1;white-space:normal;text-align:center;max-width:70px}
+}
+@media (max-width:760px){
+  .vender-cta{padding:18px 0}
+  .vc-box{flex-direction:column;align-items:stretch;gap:18px;padding:22px 18px}
+  .vc-box h2{font-size:20px}
+  .vc-btn{width:100%}
+}
