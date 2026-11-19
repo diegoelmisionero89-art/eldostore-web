@@ -691,3 +691,15 @@ body.asp-open .wa-fab,body.asp-open .wa-aviso{display:none!important}
   .vc-box h2{font-size:20px}
   .vc-btn{width:100%}
 }
+
+/* ==========================================================================
+   Tiendas asociadas como categoría · flyer «Quiero vender» dentro del catálogo
+   ========================================================================== */
+a.cat{text-decoration:none}
+.vender-mid{grid-column:1/-1;margin:6px 0}
+.vender-mid .vc-box h2{margin-bottom:8px}
+.vc-sub{margin:0;color:rgba(255,255,255,.86);font-size:15.5px;line-height:1.4}
+.as-ir{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.as-ir-txt{font-size:13px;font-weight:800}
+@media (max-width:760px){.vender-mid .vc-box h2{font-size:19px}.vc-sub{font-size:14.5px}}
+@media (max-width:360px){.as-ir-txt{display:none}}

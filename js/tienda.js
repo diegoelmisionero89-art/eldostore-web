@@ -81,6 +81,7 @@
     [/accesorio/, I('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>')]
   ];
   const ICONO_GENERICO = I('<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/>');
+  const ICONO_TIENDAS = I('<path d="M4.5 9.5 6 4h12l1.5 5.5"/><path d="M4.5 9.5a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0"/><path d="M5.5 12v8h13v-8M10 20v-5h4v5"/>');
   const iconoCategoria = nombre => { const n = norm(nombre); for (const [re, svg] of ICONOS) if (re.test(n)) return svg; return ICONO_GENERICO; };
 
   /* ---------- Catálogo ---------- */
@@ -272,7 +273,9 @@
     if (estado.orden === "menor") lista = lista.slice().sort((a, b) => cmp(a, b, 1));
     if (estado.orden === "mayor") lista = lista.slice().sort((a, b) => cmp(a, b, -1));
     if (estado.orden === "az") lista = lista.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-    return lista;
+    // Primero los productos con stock y al final los agotados, sin cambiar el orden dentro de cada grupo.
+    // Vale para todos los órdenes, categorías y búsquedas; un producto que vuelve a tener stock sube solo.
+    return lista.filter(p => p.disponible).concat(lista.filter(p => !p.disponible));
   }
 
   function tarjeta(p) {
@@ -309,6 +312,22 @@
     </article>`;
   }
 
+  /* Tiendas asociadas y «Quiero vender»: los datos los manda asociadas.js (evento «eldo:asociadas»).
+     Sin Marketplace, o sin tiendas / con el formulario cerrado, la tienda queda exactamente como antes. */
+  let ASOC = { tiendas: 0, vender: false };
+  const FLYER_TRAS = 6;   // el flyer va después de la primera fila de productos destacados (6 en computadora)
+  const FLYER_VENDER = `<aside class="vender-mid" aria-labelledby="vmTit"><div class="vc-box">
+      <div class="vc-txt"><p class="vc-sello">Vendedores asociados</p>
+        <h2 id="vmTit">¿TENÉS UN NEGOCIO O PRODUCTOS PARA VENDER?</h2>
+        <p class="vc-sub">Sumate a ELDOSTORE y llegá a nuevos clientes.</p></div>
+      <a class="vc-btn" href="#quiero-vender">QUIERO VENDER <span aria-hidden="true">›</span></a></div></aside>`;
+  document.addEventListener("eldo:asociadas", e => {
+    const d = e.detail || {}, nuevo = { tiendas: Math.max(0, Number(d.tiendas) || 0), vender: d.vender === true };
+    if (nuevo.tiendas === ASOC.tiendas && nuevo.vender === ASOC.vender) return;
+    ASOC = nuevo;
+    if (PRODUCTOS.length) { dibujarCategorias(); dibujarCatalogo(); }
+  });
+
   function dibujarCatalogo() {
     const grid = $("#catalogo-productos");
     const lista = filtrados();
@@ -321,7 +340,8 @@
       grid.innerHTML = `<div class="state"><b>No encontramos productos${estado.texto ? " para “" + esc(estado.texto) + "”" : ""}.</b>Probá con otra palabra o mirá todos los productos.</div>`;
     } else {
       const inter = PROMOS_T.datos ? PROMOS_T.datos.intermedios : [];
-      grid.innerHTML = lista.map((p, i) => tarjeta(p) +
+      const flyer = ASOC.vender && !estado.categoria && !estado.texto && lista.length > FLYER_TRAS;
+      grid.innerHTML = lista.map((p, i) => tarjeta(p) + (flyer && i === FLYER_TRAS - 1 ? FLYER_VENDER : "") +
         (inter.length && (i + 1) % CADA_INTERMEDIO === 0 && i < lista.length - 1
           ? `<div class="promo-mid">${carruselHTML(rotar(inter, Math.floor(i / CADA_INTERMEDIO)), "Promociones")}</div>` : "")).join("");
     }
@@ -339,6 +359,7 @@
     fila.hidden = cats.length === 0;
     fila.innerHTML =
       `<button class="cat" type="button" data-cat="" aria-pressed="${!estado.categoria}">${iconoCategoria("todos")}Ver todos</button>` +
+      (ASOC.tiendas ? `<a class="cat cat-asoc" href="#tiendas">${ICONO_TIENDAS}Tiendas asociadas</a>` : "") +
       cats.map(([c, , img]) => `<button class="cat${img ? " cat-img" : ""}" type="button" data-cat="${esc(c)}" aria-pressed="${estado.categoria === c}">${img
         ? `<span class="cat-pic"><img src="${esc(img)}" alt="" loading="lazy" decoding="async"></span>` : iconoCategoria(c)}${esc(c)}</button>`).join("");
     $("#catList").innerHTML =

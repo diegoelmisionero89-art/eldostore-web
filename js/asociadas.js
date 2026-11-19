@@ -88,6 +88,7 @@
         precio: Number(p.precio) > 0 ? Math.round(Number(p.precio)) : null, disponible: p.disponible === true,
         fotos: (Array.isArray(p.fotos) ? p.fotos : []).map(url).filter(Boolean).slice(0, 10)
       })).filter(p => p.vendedor);
+      D.productos = D.productos.filter(p => p.disponible).concat(D.productos.filter(p => !p.disponible));   // con stock primero
       for (const v of D.vendedores) v.productos = D.productos.filter(p => p.vendedor === v);
       D.porSlug = new Map(D.vendedores.map(v => [v.slug, v]));
       D.categorias = (Array.isArray(data.categorias) ? data.categorias : [])
@@ -164,20 +165,22 @@
     return v.logo ? `<span class="${cls}"><img src="${esc(v.logo)}" alt="" loading="lazy" decoding="async"></span>` : `<span class="${cls} sin-logo" aria-hidden="true">${iniciales(v.nombre)}</span>`;
   }
   function tarjetaTienda(v) {
-    const n = v.productos.length;
+    const n = v.productos.filter(p => p.disponible).length;
     return `<a class="as-tienda" href="#tiendas/${esc(v.slug)}">
       ${logoHTML(v, "as-logo")}
       <span class="as-tienda-txt"><b>${esc(v.nombre)}</b>
-        <small>${v.localidad ? esc(v.localidad) + " · " : ""}${n} producto${n === 1 ? "" : "s"}</small></span>
-      <span class="as-ir" aria-hidden="true">›</span></a>`;
+        <small>${v.localidad ? esc(v.localidad) + " · " : ""}${n} producto${n === 1 ? "" : "s"} disponible${n === 1 ? "" : "s"}</small></span>
+      <span class="as-ir"><span class="as-ir-txt">Ver tienda</span><span aria-hidden="true">›</span></span></a>`;
   }
   // En la portada y en la lista solo se muestran las tiendas que tienen productos publicados.
   const conProductos = () => D.vendedores.filter(v => v.productos.length);
   function dibujarSeccion() {
     const sec = $("#asociadas"); if (!sec) return;
     const vs = conProductos();
-    // «Quiero vender» (sección de la portada y enlace del menú): solo con el formulario abierto desde el panel.
-    const cta = $("#venderCta"); if (cta) cta.hidden = !D.formulario;
+    // A tienda.js: la categoría «Tiendas asociadas» (solo si hay tiendas publicadas) y el flyer «Quiero vender»
+    // (solo con el formulario abierto desde el panel).
+    document.dispatchEvent(new CustomEvent("eldo:asociadas", { detail: { tiendas: vs.length, vender: D.formulario === true } }));
+    // «Quiero vender» (botón de la barra y enlace del menú): solo con el formulario abierto desde el panel.
     for (const id of ["#venderLinkMenu", "#venderLinkHdr"]) { const l = $(id); if (l) l.hidden = !D.formulario; }
     sec.hidden = !vs.length;
     const link = $("#asLinkMenu"); if (link) link.hidden = !vs.length;
