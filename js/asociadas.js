@@ -319,9 +319,10 @@
       <h1 class="as-h1" id="asTitulo" tabindex="-1">Quiero vender en ELDOSTORE</h1>
       <p class="as-intro">Completá tus datos y te escribiremos por WhatsApp para contarte cómo funciona. Enviar la solicitud no te compromete a nada.</p>
       <ul class="vc-puntos as-cond">
-        <li>Comisión del 10&nbsp;% sobre lo que vendés.</li>
+        <li>Tu negocio tendrá su propio espacio dentro de ELDOSTORE.</li>
+        <li>Podrás publicar tus productos, fotos, precios y disponibilidad.</li>
+        <li>Los clientes podrán conocer tu catálogo y comunicarse directamente con vos.</li>
         <li>El cliente te paga directamente a vos y vos coordinás la entrega.</li>
-        <li>Nos informás tus ventas y nosotros llevamos el control de las comisiones.</li>
         <li>Si no tenés tiempo o conocimientos técnicos, podemos cargar tus productos y fotos por vos.</li>
       </ul>
       ${enviado ? `<div class="as-ok" role="status" tabindex="-1"><b>¡Recibimos tu solicitud!</b><br>Quedó pendiente de revisión. Te escribiremos por WhatsApp para contarte los próximos pasos.</div>` : `
