@@ -250,3 +250,10 @@ body:not(.modo-asociados) .solo-asociados{display:none !important}
 .mkt-foto-acc .btn{min-height:34px;padding:0 10px}
 .mkt-foto-err{color:var(--red);font-size:.72rem}
 .btn.btn-wa{background:#1f9d55;border-color:#1f9d55;color:#fff;text-decoration:none}.btn.btn-wa:hover{filter:brightness(1.07)}
+
+/* Barra de anuncios (js/anuncios-panel.js) */
+.anun-cab{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 12px}
+.anun-vel{display:flex;align-items:center;gap:8px;font-weight:600}
+.anun-vel select{width:auto;padding:8px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;color:var(--white)}
+.anun-vel select:focus{outline:2px solid var(--gold);border-color:var(--gold)}
+.anun-ico{display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:10px;background:#f4c84f;font-size:22px}

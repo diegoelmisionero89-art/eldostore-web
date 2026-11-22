@@ -1665,7 +1665,7 @@ function refrescarVistaActual() {
 
 /* --------------------------- Vista "Tienda online" -------------------------- */
 let tiendaTab = 'banners';
-const TABS_TIENDA = [['banners', 'Banners'], ['intermedio', 'Carrusel intermedio'], ['categorias', 'Categorías'], ['flash', 'Ofertas flash'], ['descuentos', 'Descuentos']];
+const TABS_TIENDA = [['banners', 'Banners'], ['anuncios', 'Barra de anuncios'], ['intermedio', 'Carrusel intermedio'], ['categorias', 'Categorías'], ['flash', 'Ofertas flash'], ['descuentos', 'Descuentos']];
 
 function renderTienda() {
   const el = document.getElementById('tiendaContenido'); if (!el) return;
@@ -1678,7 +1678,8 @@ function renderTienda() {
     `<button type="button" role="tab" class="tab${tiendaTab === k ? ' on' : ''}" aria-selected="${tiendaTab === k}" onclick="tiendaTab='${k}';renderTienda()">${t}</button>`).join('')}</div>`;
   const aviso = PROMOS.esAdmin ? '' : '<div class="notice">Solo el administrador puede hacer cambios. Vos podés ver la configuración.</div>';
   const cuerpo = { banners: () => htmlBanners('principal'), intermedio: () => htmlBanners('intermedio'),
-                   categorias: htmlCategorias, flash: htmlFlash, descuentos: htmlDescuentos }[tiendaTab]();
+                   categorias: htmlCategorias, flash: htmlFlash, descuentos: htmlDescuentos,
+                   anuncios: () => typeof htmlAnuncios === 'function' ? htmlAnuncios() : '' }[tiendaTab]();
   el.innerHTML = tabs + aviso + cuerpo;
 }
 const adminOnly = () => PROMOS.esAdmin ? '' : 'disabled';
