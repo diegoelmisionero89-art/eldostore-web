@@ -312,13 +312,14 @@ function openProductModal(id) {
       <select id="f_owner">${accountOptions(p ? p.ownerAccountId : cuentaEldostoreId())}</select>
       ${p ? '<small>Las ventas anteriores conservan su dueño. El cambio queda registrado con el stock y su valor.</small>' : ''}</div>` : ''}
     
-        <div class="field">
+    ${(() => { const anterior = `        <div class="field">
           <label>${p && p.foto ? 'Foto del producto (elegí una nueva solo si querés reemplazarla)' : 'Foto del producto'}</label>
           ${p && p.foto ? `<img src="${esc(p.foto)}" alt="Foto actual" class="img-actual" loading="lazy">` : ''}
           <input type="file" id="f_foto" accept="image/jpeg,image/png,image/webp">
           <small>JPG, PNG o WebP de hasta 15 MB. Se optimiza sola antes de subir (máx. 1200 px).</small>
           <div id="f_foto_prev" class="img-prev" hidden></div>
-        </div>
+        </div>`;
+      return typeof campoFotosProducto === 'function' ? campoFotosProducto(p, anterior) : anterior; })()}
 
     <div class="two-col">
       <div class="field"><label>Costo</label><input type="number" id="f_costo" value="${p ? p.costo : ''}"></div>
@@ -363,19 +364,34 @@ async function saveProduct(id) {
   const btn = document.getElementById('saveProductBtn');
   btn.disabled = true; btn.textContent = 'Preparando foto...';
 
+  // Varias fotos (migración 018): ya se optimizaron y subieron al elegirlas; acá solo se guarda el orden.
+  const galeria = typeof galeriaProductoActiva === 'function' && galeriaProductoActiva();
+  if (galeria && fotosProductoSubiendo()) { showToast('Esperá a que terminen de subirse las fotos.'); btn.disabled = false; btn.textContent = 'Guardar'; return; }
+
   // La foto se optimiza al elegirla; si no se pudo, se avisa y no se guarda nada.
   let fotoLista = null;
-  try { fotoLista = await imagenElegida('f_foto', 'producto'); }
-  catch (e) { showToast(e.message); btn.disabled = false; btn.textContent = 'Guardar'; return; }
+  if (!galeria) {
+    try { fotoLista = await imagenElegida('f_foto', 'producto'); }
+    catch (e) { showToast(e.message); btn.disabled = false; btn.textContent = 'Guardar'; return; }
+  }
 
   btn.textContent = 'Guardando...';
+  let creado = null;
   try {
     if (fotoLista) data.foto = await subirImagenOptimizada(fotoLista, 'producto');
+    if (galeria && !id) data.foto = portadaProductoNueva();
 
     if (id) {
       await updateProduct(id, data);
       if (motivoDueno) await setProductOwner(id, data.ownerAccountId, motivoDueno.trim());
-    } else await addProduct(data);
+    } else creado = await addProduct(data);
+    if (galeria) {
+      try { await guardarFotosProducto(id || creado.id); }
+      catch (e) {
+        if (!id) { closeModal(); renderProducts(); showError(new Error('El producto se creó, pero no se pudieron guardar las fotos adicionales: ' + (e.message || e) + ' Abrilo de nuevo para agregarlas.')); return; }
+        throw e;
+      }
+    }
     closeModal();
     renderProducts();
     showToast('Producto guardado.');

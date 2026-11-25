@@ -257,3 +257,17 @@ body:not(.modo-asociados) .solo-asociados{display:none !important}
 .anun-vel select{width:auto;padding:8px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;color:var(--white)}
 .anun-vel select:focus{outline:2px solid var(--gold);border-color:var(--gold)}
 .anun-ico{display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:10px;background:#f4c84f;font-size:22px}
+
+/* Varias fotos por producto (js/fotos-producto-panel.js) */
+.fp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;margin:6px 0 10px}
+.fp-foto{position:relative;border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:6px;background:var(--card)}
+.fp-foto img{width:100%;aspect-ratio:1;object-fit:contain;border-radius:8px;background:#fff}
+.fp-foto.fp-portada{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.fp-badge{position:absolute;top:10px;left:10px;z-index:1;background:var(--gold);color:#111;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px}
+.fp-acc{display:flex;flex-wrap:wrap;gap:4px}
+.fp-acc .btn{padding:4px 8px;font-size:.75rem;min-height:30px}
+.fp-cargando{align-items:center;justify-content:center;aspect-ratio:1;color:var(--muted);font-size:.8rem;text-align:center}
+.fp-pie{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.fp-pie label.btn{cursor:pointer}
+.fp-pie label.btn.disabled{opacity:.5;pointer-events:none}
+.fp-error{color:#ff8a80;font-size:.85rem;margin:0}
