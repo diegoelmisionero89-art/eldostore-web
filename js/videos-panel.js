@@ -52,6 +52,39 @@ async function iniciarVideoProducto(p) {
   });
 }
 
+/* ---------- 1b. Producto de un vendedor, editado por el administrador (Tiendas asociadas → Editar) ----------
+   Mismo componente y mismos límites. El archivo va a la carpeta de ESE vendedor y queda aprobado (lo carga ELDOSTORE).
+   Si lo subió el vendedor y está pendiente, se puede aprobar desde acá. (migración 020) */
+function campoVideoMkt(p) {
+  if (VIDEOS_019 === false || !window.EldoVideo) return '';
+  setTimeout(() => iniciarVideoMkt(p), 0);
+  return `<div class="field" id="vidCampoMkt" hidden>
+    <label>Video del producto</label>
+    <div id="vidMkt"></div>
+  </div>`;
+}
+async function iniciarVideoMkt(p) {
+  const campo = document.getElementById('vidCampoMkt'), cont = document.getElementById('vidMkt');
+  if (!campo || !cont) return;
+  const id = p ? p.id : null;
+  if (id) {
+    try { await rpcCuentas('mkt_video_panel', { p_producto_id: id }); }
+    catch (e) { if (funcionInexistente(e)) { campo.remove(); return; } }
+  }
+  campo.hidden = false;
+  const refrescarLista = () => { VIDS_MKT.cargado = false; };
+  EldoVideo.seccionVideo({
+    contenedor: cont, productoId: id, carpeta: p ? 'v/' + p.vendedor_id : '',
+    clases: { btn: 'btn btn-sm', prim: 'btn btn-primary btn-sm', peligro: 'btn btn-sm btn-danger' },
+    leer: () => rpcCuentas('mkt_video_panel', { p_producto_id: id }),
+    subir: subirArchivoVideo,
+    guardar: async (url, poster, duracion, peso) => { const r = await rpcCuentas('mkt_guardar_video_admin', { p_producto_id: id, p_url: url, p_poster: poster, p_duracion: duracion, p_peso: peso }); refrescarLista(); return r; },
+    eliminar: async () => { const r = await rpcCuentas('mkt_eliminar_video', { p_producto_id: id }); refrescarLista(); return r; },
+    aprobar: async () => { await rpcCuentas('mkt_revisar_video', { p_producto_id: id, p_estado: 'aprobado', p_motivo: '' }); refrescarLista(); },
+    borrarArchivos: borrarArchivosVideo
+  });
+}
+
 /* ---------- 2. Videos de los vendedores (Tiendas asociadas → Videos) ---------- */
 const VIDS_MKT = { cargado: false, cargando: false, disponible: false, lista: [], viendo: null };
 async function cargarVideosMkt() {

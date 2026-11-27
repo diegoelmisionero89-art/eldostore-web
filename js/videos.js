@@ -311,7 +311,8 @@
           <button type="button" class="${cls.btn}" data-vid="cancelar">Cancelar</button></div></div>`;
       else if (actual) cuerpo = `<div class="vid-caja"><video class="vid-ver" src="${esc(actual.url)}" poster="${esc(actual.poster)}" controls playsinline preload="none"></video>
           <p class="vid-dato">${seg(Number(actual.duracion))} · ${mb(Number(actual.peso))}${actual.estado ? `<br><span class="vid-est vid-${esc(actual.estado)}">${estadoTxt(actual.estado)}${actual.estado === "rechazado" && actual.motivo ? ": " + esc(actual.motivo) : ""}</span>` : ""}</p>
-          <div class="vid-acc"><label class="${cls.btn} vid-elegir">Reemplazar video<input type="file" accept="video/mp4,video/quicktime,video/*" data-vid="archivo" hidden></label>
+          <div class="vid-acc">${op.aprobar && actual.estado && actual.estado !== "aprobado" ? `<button type="button" class="${cls.prim}" data-vid="aprobar">Aprobar y publicar</button>` : ""}
+          <label class="${cls.btn} vid-elegir">Reemplazar video<input type="file" accept="video/mp4,video/quicktime,video/*" data-vid="archivo" hidden></label>
           <button type="button" class="${cls.peligro}" data-vid="eliminar">Eliminar video</button></div></div>`;
       else cuerpo = `<div class="vid-acc"><label class="${cls.btn} vid-elegir">+ Agregar video<input type="file" accept="video/mp4,video/quicktime,video/*" data-vid="archivo" hidden></label></div>`;
       c.innerHTML = `<div class="vid-sec">${cuerpo}${error ? `<p class="vid-err" role="alert">${esc(error)}</p>` : ""}${mensaje ? `<p class="vid-ok" role="status">${esc(mensaje)}</p>` : ""}${pie}</div>`;
@@ -338,7 +339,13 @@
       if (a === "cancelar") { soltarElegido(); error = ""; dibujar(); }
       if (a === "subir" && elegido) subir();          // sin esperas antes: el toque habilita el sonido
       if (a === "eliminar") eliminar();
+      if (a === "aprobar" && op.aprobar) aprobar();
     });
+    async function aprobar() {
+      ocupado = true; error = ""; mensaje = "";
+      try { await op.aprobar(); mensaje = "Video aprobado: ya se ve en la tienda."; ocupado = false; await cargar(); }
+      catch (e) { ocupado = false; error = "No se pudo aprobar: " + (e.message || e); dibujar(); }
+    }
     async function subir() {
       ocupado = true; error = ""; mensaje = "";
       const info = elegido;

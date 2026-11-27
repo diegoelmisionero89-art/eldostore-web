@@ -374,6 +374,7 @@ function abrirProductoMkt(id) {
       <div id="mp_fotos" class="mkt-fotos"></div>
       <label class="btn btn-sm file-btn">+ Agregar fotos<input type="file" accept="image/*" multiple onchange="agregarFotosMkt(this)"></label>
       <small>Se optimizan solas antes de subir (máx. 1200 px).</small></div>
+    ${typeof campoVideoMkt === 'function' ? campoVideoMkt(p) : ''}
     ${p ? '' : '<p class="muted-sm">Queda <b>pendiente de aprobación</b>: no se publica hasta que lo apruebes.</p>'}
     <div class="modal-actions">
       <button class="btn btn-sm" onclick="closeModal()">Cancelar</button>
