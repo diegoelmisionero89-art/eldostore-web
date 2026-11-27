@@ -183,6 +183,23 @@
     for (const p of productos) if (!p.foto && p.fotos.length) p.foto = p.fotos[0];
   }
 
+  /* Video del producto (migración 019). Cualquier problema → sin video (las fotos quedan como siempre). */
+  const videoValido = u => (typeof u === "string" && u.length < 400 &&
+    /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/productos-videos\/[A-Za-z0-9\/_.-]+\.(mp4|webp|jpg)$/.test(u)) ? u : "";
+  async function cargarVideos() {
+    try {
+      const { data, error } = await cliente().rpc("videos_tienda");
+      return error || !Array.isArray(data) ? [] : data;
+    } catch (e) { return []; }
+  }
+  function aplicarVideos(productos, filas) {
+    const porId = new Map(productos.filter(p => p.id).map(p => [p.id, p]));
+    for (const f of filas) {
+      const p = f && porId.get(String(f.producto_id)), url = videoValido(f && f.url), poster = videoValido(f && f.poster);
+      if (p && url && poster && /\.mp4$/.test(url)) p.video = { url, poster, duracion: Math.round(Number(f.duracion) || 0) };
+    }
+  }
+
   /* ---------- Carrito ---------- */
   let carrito = new Map();
   const sePuedeComprar = p => !!(p && p.disponible && p.precio);
@@ -681,7 +698,56 @@
   let fotoActual = 0;
   const ICONO_ZOOM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2M11 8v6M8 11h6"/></svg>';
   const FLECHA = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+  /* Elementos de la galería. Sin video = solo las fotos (idéntico a antes). Con video: va 2.º (1.º si no hay fotos). */
+  function itemsGaleria(p) {
+    const it = (p ? p.fotos : []).map((u, i) => ({ t: "f", u, fi: i }));
+    if (p && p.video) it.splice(Math.min(1, it.length), 0, Object.assign({ t: "v" }, p.video));
+    return it;
+  }
+  const itemsFicha = () => itemsGaleria(porClave.get(fichaClave));
+  const ICONO_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>';
+  const mmss = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  function galeriaConVideoHTML(p, tag) {
+    const it = itemsGaleria(p), fotos = p.fotos, varias = it.length > 1;
+    if (fotoActual >= it.length) fotoActual = 0;
+    const slide = (x, i) => x.t === "v"
+      ? `<div class="f-slide f-vslide"><button type="button" class="f-play" data-g="video" aria-label="Reproducir el video de ${esc(p.nombre)}${x.duracion ? " (" + x.duracion + " segundos)" : ""}">
+          <img src="${esc(x.poster)}" alt="" decoding="async" ${i ? 'loading="lazy"' : ""}><span class="f-play-ic">${ICONO_PLAY}</span>${x.duracion ? `<span class="f-dur">${mmss(x.duracion)}</span>` : ""}</button></div>`
+      : `<div class="f-slide"><img src="${esc(x.u)}" alt="${esc(p.nombre)}${fotos.length > 1 ? ", foto " + (x.fi + 1) + " de " + fotos.length : ""}" decoding="async" ${i ? 'loading="lazy"' : ""} data-g="ampliar" data-i="${i}"></div>`;
+    const mini = (x, i) => x.t === "v"
+      ? `<button type="button" class="f-th f-th-v" data-g="ver" data-i="${i}" aria-label="Ver el video" aria-current="${i === fotoActual}"><img src="${esc(x.poster)}" alt="" loading="lazy" decoding="async"><span class="f-th-play">${ICONO_PLAY}</span></button>`
+      : `<button type="button" class="f-th" data-g="ver" data-i="${i}" aria-label="Ver foto ${x.fi + 1}" aria-current="${i === fotoActual}"><img src="${esc(x.u)}" alt="" loading="lazy" decoding="async"></button>`;
+    return `<div class="f-gal">
+      <div class="f-photo${p.disponible ? "" : " is-off"}">${tag}
+        <div class="f-track" tabindex="0" aria-label="Fotos y video de ${esc(p.nombre)}${varias ? ": deslizá para ver más" : ""}">
+          ${it.map(slide).join("")}
+        </div>
+        ${varias ? `<button type="button" class="f-nav prev" data-g="prev" aria-label="Anterior">${FLECHA("M15 5l-7 7 7 7")}</button>
+        <button type="button" class="f-nav next" data-g="next" aria-label="Siguiente">${FLECHA("M9 5l7 7-7 7")}</button>
+        <span class="f-count" aria-hidden="true"><b>${fotoActual + 1}</b> / ${it.length}</span>` : ""}
+        ${fotos.length ? `<button type="button" class="f-zoom" data-g="ampliar" aria-label="Ampliar foto" ${it[fotoActual] && it[fotoActual].t === "v" ? "hidden" : ""}>${ICONO_ZOOM}</button>` : ""}
+      </div>
+      ${varias ? `<div class="f-thumbs" aria-label="Elegir foto o video">${it.map(mini).join("")}</div>` : ""}
+    </div>`;
+  }
+  function reproducirVideoFicha() {
+    const x = itemsFicha()[fotoActual], b = ficha.querySelector(".f-vslide .f-play");
+    if (!x || x.t !== "v" || !b) return;
+    const v = document.createElement("video");
+    v.className = "f-video"; v.src = x.url; v.poster = x.poster; v.controls = true; v.playsInline = true;
+    v.setAttribute("playsinline", ""); v.preload = "auto"; v.setAttribute("controlslist", "nodownload");
+    b.replaceWith(v);
+    const pp = v.play(); if (pp && pp.catch) pp.catch(() => {});
+  }
+  // Redibujar la ficha (cantidad, carrito…) sin cortar el video que se está viendo
+  function redibujarFicha() {
+    const vivo = ficha.querySelector("video.f-video"), clave = fichaClave;
+    dibujarFicha();
+    if (vivo && clave === fichaClave) { const b = ficha.querySelector(".f-vslide .f-play"); if (b) b.replaceWith(vivo); }
+  }
+
   function galeriaHTML(p, tag) {
+    if (p.video) return galeriaConVideoHTML(p, tag);
     const fotos = p.fotos;
     const varias = fotos.length > 1;
     if (fotoActual >= fotos.length) fotoActual = 0;
@@ -708,6 +774,11 @@
   }
   function marcarFoto() {
     const c = ficha.querySelector(".f-count b"); if (c) c.textContent = fotoActual + 1;
+    if (ficha.querySelector(".f-vslide")) {   // solo con video (migración 019)
+      const esV = (itemsFicha()[fotoActual] || {}).t === "v", z = ficha.querySelector(".f-zoom");
+      if (z) z.hidden = esV;
+      if (!esV) ficha.querySelectorAll("video.f-video").forEach(v => v.pause());
+    }
     ficha.querySelectorAll(".f-th").forEach((b, i) => {
       b.setAttribute("aria-current", String(i === fotoActual));
       if (i === fotoActual && b.parentElement.scrollWidth > b.parentElement.clientWidth)
@@ -732,18 +803,20 @@
   let visorFoco = null;
   function abrirVisor() {
     const p = porClave.get(fichaClave); if (!p || !p.fotos.length) return;
+    const actual = itemsGaleria(p)[fotoActual]; if (actual && actual.t === "v") return;   // el video no se amplía
+    const fotoV = actual ? actual.fi : 0;
     const varias = p.fotos.length > 1;
     visor.innerHTML = `<div class="lbx-track">${p.fotos.map((u, i) => `<div class="lbx-slide"><div class="lbx-zoom"><img src="${esc(u)}" alt="${esc(p.nombre)}${varias ? ", foto " + (i + 1) + " de " + p.fotos.length : ""}" decoding="async"></div></div>`).join("")}</div>
       <button type="button" class="lbx-close" data-v="cerrar" aria-label="Cerrar foto ampliada">×</button>
       ${varias ? `<button type="button" class="lbx-nav prev" data-v="prev" aria-label="Foto anterior">${FLECHA("M15 5l-7 7 7 7")}</button>
       <button type="button" class="lbx-nav next" data-v="next" aria-label="Foto siguiente">${FLECHA("M9 5l7 7-7 7")}</button>
-      <span class="lbx-count"><b>${fotoActual + 1}</b> / ${p.fotos.length}</span>` : ""}
+      <span class="lbx-count"><b>${fotoV + 1}</b> / ${p.fotos.length}</span>` : ""}
       <p class="lbx-help">Tocá la foto para acercar</p>`;
     visorFoco = document.activeElement;
     visor.hidden = false;
     document.body.classList.add("lbx-open");
     const t = visor.querySelector(".lbx-track");
-    t.scrollLeft = fotoActual * t.clientWidth;
+    t.scrollLeft = fotoV * t.clientWidth;
     history.pushState({ eldoVisor: true }, "", location.href);
     visor.querySelector(".lbx-close").focus({ preventScroll: true });
   }
@@ -768,7 +841,8 @@
     const t = e.target;
     if (!(t instanceof Element) || !t.classList.contains("lbx-track")) return;
     const i = Math.round(t.scrollLeft / Math.max(1, t.clientWidth));
-    if (i !== fotoActual) { fotoActual = i; const c = visor.querySelector(".lbx-count b"); if (c) c.textContent = i + 1; }
+    const s = itemsFicha().findIndex(x => x.t === "f" && x.fi === i), slide = s < 0 ? i : s;
+    if (slide !== fotoActual) { fotoActual = slide; const c = visor.querySelector(".lbx-count b"); if (c) c.textContent = i + 1; }
   }, true);
   visor.addEventListener("click", e => {
     const b = e.target.closest("[data-v]");
@@ -867,7 +941,7 @@
     if (fichaDesdeTienda && history.length > 1) history.back();
     else { history.replaceState(null, "", location.pathname + location.search); ocultarFicha(); }
   }
-  refrescarFicha = () => { if (!ficha.hidden) dibujarFicha(); };
+  refrescarFicha = () => { if (!ficha.hidden) redibujarFicha(); };
   window.addEventListener("hashchange", () => { if (claveDesdeDireccion() !== null) fichaDesdeTienda = true; enrutar(); });
   document.addEventListener("click", e => {
     const a = e.target.closest('a[href^="#producto/"]');
@@ -877,11 +951,12 @@
   ficha.addEventListener("click", e => {
     const g = e.target.closest("[data-g]");
     if (g) {
-      const p = porClave.get(fichaClave); const n = p ? p.fotos.length : 0;
+      const n = itemsFicha().length;
       if (g.dataset.g === "ver") { fotoActual = Number(g.dataset.i) || 0; ubicarFoto(true); }
       if (g.dataset.g === "prev") { fotoActual = (fotoActual - 1 + n) % n; ubicarFoto(true); }
       if (g.dataset.g === "next") { fotoActual = (fotoActual + 1) % n; ubicarFoto(true); }
       if (g.dataset.g === "ampliar") abrirVisor();
+      if (g.dataset.g === "video") reproducirVideoFicha();
       return;
     }
     const b = e.target.closest("[data-f]"); if (!b) return;
@@ -903,7 +978,7 @@
         break;
       }
     }
-    dibujarFicha();
+    redibujarFicha();
     const again = ficha.querySelector(`[data-f="${b.dataset.f}"]`);
     if (again && !again.disabled) again.focus({ preventScroll: true });
   });
@@ -1285,9 +1360,10 @@
     g.setAttribute("aria-busy", "true");
     g.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>';
     try {
-      const [filas, extras, promos] = await Promise.all([cargarCatalogo(), cargarFotosExtra(), cargarPromosTienda()]);
+      const [filas, extras, promos, videos] = await Promise.all([cargarCatalogo(), cargarFotosExtra(), cargarPromosTienda(), cargarVideos()]);
       PRODUCTOS = prepararCatalogo(filas);
       aplicarFotosExtra(PRODUCTOS, extras);
+      aplicarVideos(PRODUCTOS, videos);
       porClave = new Map(PRODUCTOS.map(p => [p.clave, p]));
       guardarPromos(promos);
       carrito = leerCarrito();

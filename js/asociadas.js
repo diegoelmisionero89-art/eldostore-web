@@ -53,6 +53,38 @@
   /* ---------- Datos ---------- */
   const D = { vendedores: [], productos: [], categorias: [], porSlug: new Map(), listo: false, formulario: false };
   let sb = null;
+  /* Video del producto (migración 019): solo los APROBADOS de productos visibles. Cualquier problema → sin video. */
+  const vurl = u => (typeof u === "string" && u.length < 400 &&
+    /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/productos-videos\/v\/[0-9a-f-]{36}\/[0-9]{10,16}-[a-z0-9]{4,16}\.(mp4|webp|jpg)$/.test(u)) ? u : "";
+  async function aplicarVideosAs() {
+    try {
+      const r = await sb.rpc("mkt_videos_tienda");
+      if (r.error || !Array.isArray(r.data)) return;
+      const porId = new Map(D.productos.map(p => [p.id, p]));
+      for (const f of r.data) {
+        const p = f && porId.get(String(f.producto_id)), u = vurl(f.url), po = vurl(f.poster);
+        if (p && u && po && /\.mp4$/.test(u)) p.video = { url: u, poster: po, duracion: Math.round(Number(f.duracion) || 0) };
+      }
+    } catch (e) { /* sin video */ }
+  }
+  const ICONO_PLAY_AS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>';
+  const itemsAs = p => { const it = p.fotos.map((u, i) => ({ t: "f", u, fi: i })); if (p.video) it.splice(Math.min(1, it.length), 0, Object.assign({ t: "v" }, p.video)); return it; };
+  function galeriaVideoAsHTML(v, p) {   // solo para productos CON video; sin video se usa la galería de siempre
+    const it = itemsAs(p), n = it.length, nf = p.fotos.length;
+    if (fotoI >= n) fotoI = 0;
+    const mmss = x => Math.floor(x / 60) + ":" + String(x % 60).padStart(2, "0");
+    return `<div class="f-gal"><div class="f-photo${p.disponible ? "" : " is-off"}">${p.disponible ? "" : '<span class="tag grey">Sin stock</span>'}
+        <div class="f-track as-track" tabindex="0" aria-label="Fotos y video de ${esc(p.nombre)}">${it.map((x, i) => x.t === "v"
+          ? `<div class="f-slide f-vslide"><button type="button" class="f-play" data-as="video" aria-label="Reproducir el video de ${esc(p.nombre)}${x.duracion ? " (" + x.duracion + " segundos)" : ""}"><img src="${esc(x.poster)}" alt="" decoding="async" ${i ? 'loading="lazy"' : ""}><span class="f-play-ic">${ICONO_PLAY_AS}</span>${x.duracion ? `<span class="f-dur">${mmss(x.duracion)}</span>` : ""}</button></div>`
+          : `<div class="f-slide"><img src="${esc(x.u)}" alt="${esc(p.nombre)}${nf > 1 ? ", foto " + (x.fi + 1) + " de " + nf : ""}" decoding="async" ${i ? 'loading="lazy"' : ""}></div>`).join("")}</div>
+          ${n > 1 ? `<span class="f-count" aria-hidden="true"><b>${fotoI + 1}</b> / ${n}</span>` : ""}
+        </div>
+        ${n > 1 ? `<div class="f-thumbs">${it.map((x, i) => x.t === "v"
+          ? `<button type="button" class="f-th f-th-v" data-as="foto" data-i="${i}" aria-label="Ver el video" aria-current="${i === fotoI}"><img src="${esc(x.poster)}" alt="" loading="lazy"><span class="f-th-play">${ICONO_PLAY_AS}</span></button>`
+          : `<button type="button" class="f-th" data-as="foto" data-i="${i}" aria-label="Ver foto ${x.fi + 1}" aria-current="${i === fotoI}"><img src="${esc(x.u)}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}
+      </div>`;
+  }
+
   async function cargar() {
     if (!window.supabase || !CFG.supabaseUrl) return false;
     try {
@@ -94,6 +126,7 @@
       D.categorias = (Array.isArray(data.categorias) ? data.categorias : [])
         .map(c => ({ slug: String(c.slug || ""), nombre: limpiar(c.nombre, 40) }))
         .filter(c => /^[a-z0-9-]{1,40}$/.test(c.slug) && c.nombre && D.productos.some(p => p.categoriaSlug === c.slug));
+      await aplicarVideosAs();   // migración 019: videos aprobados (si falla, sin video)
       D.listo = true;
       return true;
     } catch (e) { return false; }
@@ -277,15 +310,21 @@
     document.title = v.nombre + " | Tiendas asociadas | ELDOSTORE";
   }
   function dibujarFicha(v, p) {
+    const vivo = pag.querySelector("video.f-video"), mismo = vivo && vivo.dataset.pid === p.id;   // migración 019
+    dibujarFichaBase(v, p);
+    if (mismo) { const b = pag.querySelector(".f-vslide .f-play"); if (b) b.replaceWith(vivo); }
+    if (p.video) { const t = pag.querySelector(".as-track"); if (t && fotoI) t.scrollLeft = fotoI * t.clientWidth; }   // con video: misma posición
+  }
+  function dibujarFichaBase(v, p) {
     const ok = comprable(p), en = (pedidos[v.slug] || {})[p.id] || 0;
-    if (fotoI >= p.fotos.length) fotoI = 0;
+    if (fotoI >= (p.video ? itemsAs(p).length : p.fotos.length)) fotoI = 0;
     pag.innerHTML = barra(v.nombre, v) + `<div class="f-wrap"><div class="f-main">
-      <div class="f-gal"><div class="f-photo${p.disponible ? "" : " is-off"}">${p.disponible ? "" : '<span class="tag grey">Sin stock</span>'}
+      ${p.video ? galeriaVideoAsHTML(v, p) : `      <div class="f-gal"><div class="f-photo${p.disponible ? "" : " is-off"}">${p.disponible ? "" : '<span class="tag grey">Sin stock</span>'}
         ${p.fotos.length ? `<div class="f-track as-track" tabindex="0" aria-label="Fotos de ${esc(p.nombre)}">${p.fotos.map((u, i) => `<div class="f-slide"><img src="${esc(u)}" alt="${esc(p.nombre)}${p.fotos.length > 1 ? ", foto " + (i + 1) + " de " + p.fotos.length : ""}" decoding="async" ${i ? 'loading="lazy"' : ""}></div>`).join("")}</div>
           ${p.fotos.length > 1 ? `<span class="f-count" aria-hidden="true"><b>${fotoI + 1}</b> / ${p.fotos.length}</span>` : ""}` : '<span class="ph">' + esc(v.nombre) + "</span>"}
         </div>
         ${p.fotos.length > 1 ? `<div class="f-thumbs">${p.fotos.map((u, i) => `<button type="button" class="f-th" data-as="foto" data-i="${i}" aria-label="Ver foto ${i + 1}" aria-current="${i === fotoI}"><img src="${esc(u)}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}
-      </div>
+      </div>`}
       <div class="f-info">
         <a class="as-de" href="#tiendas/${esc(v.slug)}">${logoHTML(v, "as-logo mini")}<span>Vendido por <b>${esc(v.nombre)}</b></span></a>
         ${p.categoria ? `<p class="cat-lbl">${esc(p.categoria)}</p>` : ""}
@@ -665,6 +704,8 @@
     fotoI = i;
     const c = pag.querySelector(".f-count b"); if (c) c.textContent = i + 1;
     pag.querySelectorAll(".f-th").forEach((b, k) => b.setAttribute("aria-current", String(k === i)));
+    if (!(pag.querySelectorAll(".as-track > .f-slide")[i] || { classList: { contains: () => false } }).classList.contains("f-vslide"))
+      pag.querySelectorAll("video.f-video").forEach(x => x.pause());
   }, true);
   pag.addEventListener("click", e => {
     const b = e.target.closest("[data-as]"); if (!b) return;
@@ -676,6 +717,14 @@
     if (a === "pedido" && v) { abrirPedido(v); return; }
     if (!v) return;
     if (a === "compartir") { compartir(v, b.dataset.p ? v.productos.find(x => x.codigo === b.dataset.p) : null); return; }
+    if (a === "video") {   // migración 019: el video se descarga recién ahora
+      const p = v.productos.find(x => x.codigo === ruta.codigo); if (!p || !p.video) return;
+      const el = document.createElement("video");
+      el.className = "f-video"; el.dataset.pid = p.id; el.src = p.video.url; el.poster = p.video.poster;
+      el.controls = true; el.playsInline = true; el.setAttribute("playsinline", ""); el.preload = "auto"; el.setAttribute("controlslist", "nodownload");
+      b.replaceWith(el); const pp = el.play(); if (pp && pp.catch) pp.catch(() => {});
+      return;
+    }
     if (a === "foto") {
       fotoI = Number(b.dataset.i) || 0;
       const t = pag.querySelector(".as-track"); if (t) t.scrollTo({ left: fotoI * t.clientWidth, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });

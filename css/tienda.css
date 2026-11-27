@@ -714,3 +714,17 @@ a.cat{text-decoration:none}
 .as-ir-txt{font-size:13px;font-weight:800}
 @media (max-width:760px){.vender-mid .vc-box h2{font-size:19px}.vc-sub{font-size:14.5px}}
 @media (max-width:360px){.as-ir-txt{display:none}}
+/* Video del producto en la galería (migración 019). Solo aparece si el producto tiene video. */
+.f-vslide{background:#0b0b0b}
+.f-play{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;background:#0b0b0b;cursor:pointer;display:block}
+.f-photo .f-play img{padding:0;cursor:pointer}
+.f-play-ic{position:absolute;left:50%;top:50%;width:68px;height:68px;margin:-34px 0 0 -34px;display:grid;place-items:center;border-radius:50%;background:rgba(8,8,8,.72);color:#fff;box-shadow:0 4px 18px rgba(0,0,0,.35);transition:transform .15s}
+.f-play-ic svg{width:30px;height:30px;margin-left:4px}
+.f-play:hover .f-play-ic,.f-play:focus-visible .f-play-ic{color:var(--gold);transform:scale(1.06)}
+.f-play:focus-visible{outline:3px solid var(--gold);outline-offset:-3px}
+.f-dur{position:absolute;right:10px;top:10px;padding:3px 9px;border-radius:99px;background:rgba(8,8,8,.72);color:#fff;font-size:12px;font-weight:700}
+.f-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.f-th-v{background:#0b0b0b}
+.f-th-play{position:absolute;inset:0;display:grid;place-items:center;color:#fff;pointer-events:none}
+.f-th-play svg{width:22px;height:22px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
+@media (prefers-reduced-motion:reduce){.f-play-ic{transition:none}}

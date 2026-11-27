@@ -259,12 +259,14 @@
           <input id="vpFArch" type="file" accept="image/*" multiple class="vp-oculto">
           <small class="vp-muted" id="vpFotosEstado"></small>
         </fieldset>
+        <fieldset class="vp-fs" id="vpVidFs" hidden><legend>Video del producto (opcional)</legend><div id="vpVid"></div></fieldset>
         <div class="vp-dos">
           <button class="vp-btn" type="submit" id="vpGuardarProd">${p ? "Guardar cambios" : "Enviar a revisión"}</button>
           <button class="vp-btn sec" type="button" data-acc="volver">Volver</button>
         </div>
       </form></section>`;
     dibujarFotosBorrador();
+    if (window.EldoVideoPortal) EldoVideoPortal.iniciar($("#vpVid"), p ? p.id : null, sb, PORTAL);   // migración 019
     $("#vpFN").focus();
   }
 
@@ -340,7 +342,9 @@
       if (!r.error) return recargar(acc === "pausar" ? "Producto pausado: ya no se ve en la web." : "Producto reanudado.");
     }
     if (acc === "eliminar") {
+      const vidArch = window.EldoVideoPortal ? await EldoVideoPortal.archivosDe(id, sb) : [];   // migración 019
       r = await sb.rpc("mkt_vendedor_eliminar_producto", { p_id: id });
+      if (!r.error && vidArch.length) await EldoVideoPortal.borrarArchivos(sb, vidArch);
       if (!r.error) return recargar("Producto eliminado.");
     }
     b.disabled = false;

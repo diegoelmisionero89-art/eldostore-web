@@ -271,3 +271,10 @@ body:not(.modo-asociados) .solo-asociados{display:none !important}
 .fp-pie label.btn{cursor:pointer}
 .fp-pie label.btn.disabled{opacity:.5;pointer-events:none}
 .fp-error{color:#ff8a80;font-size:.85rem;margin:0}
+
+/* Video del producto (js/videos-panel.js, migración 019) */
+.badge-bad{background:#3a2020;color:#ff8a8a}
+.vid-mkt-poster{position:relative;width:64px;height:64px;flex:none;padding:0;border:0;border-radius:10px;overflow:hidden;background:#000;cursor:pointer}
+.vid-mkt-poster img{width:100%;height:100%;object-fit:cover;display:block;opacity:.85}
+.vid-mkt-poster span{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:22px;text-shadow:0 1px 4px #000}
+.vid-mkt-ver{width:180px;max-height:240px;flex:none;border-radius:10px;background:#000}

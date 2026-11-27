@@ -139,6 +139,7 @@ function renderAsociados() {
     tabs.push(['compras', `Compras${porPagar ? ` · ${porPagar} sin pagar` : ''}`], ['liquidaciones', 'Liquidaciones']);
   }
   if (MKT.esAdmin) tabs.push(['ventas', 'Ventas y comisiones']);   // información financiera: solo el administrador
+  { const t = typeof tabVideosMkt === 'function' ? tabVideosMkt() : null; if (t) tabs.push(['videos', t]); }   // migración 019
   if (!tabs.some(([k]) => k === mktTab)) mktTab = 'vendedores';
   const aviso = MKT.esAdmin ? '' : '<div class="notice">Solo el administrador puede hacer cambios. Vos podés ver la información.</div>';
   const estadoGeneral = MKT.etapaC && !MKT.config.activo
@@ -147,7 +148,8 @@ function renderAsociados() {
       `<button type="button" role="tab" class="tab${mktTab === k ? ' on' : ''}" aria-selected="${mktTab === k}" onclick="mktTab='${k}';renderAsociados()">${t}</button>`).join('')}</div>`
     + aviso + estadoGeneral + ({ marketplace: htmlMarketplaceMkt, solicitudes: htmlSolicitudesMkt, vendedores: htmlVendedoresMkt,
         productos: htmlProductosMkt, categorias: htmlCategoriasMkt, ventas: htmlVentasMkt,
-        compras: htmlComprasMkt, liquidaciones: htmlLiquidacionesMkt }[mktTab])();
+        compras: htmlComprasMkt, liquidaciones: htmlLiquidacionesMkt,
+        videos: typeof htmlVideosMkt === 'function' ? htmlVideosMkt : () => '' }[mktTab])();
 }
 
 /* ----------------------------- Vendedores -------------------------------- */

@@ -320,6 +320,7 @@ function openProductModal(id) {
           <div id="f_foto_prev" class="img-prev" hidden></div>
         </div>`;
       return typeof campoFotosProducto === 'function' ? campoFotosProducto(p, anterior) : anterior; })()}
+    ${typeof campoVideoProducto === 'function' ? campoVideoProducto(p) : ''}
 
     <div class="two-col">
       <div class="field"><label>Costo</label><input type="number" id="f_costo" value="${p ? p.costo : ''}"></div>
