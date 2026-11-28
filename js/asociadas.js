@@ -637,6 +637,39 @@
     mostrar(ruta, false);
     pag.scrollTop = y;
   }
+  /* Posición en la tienda al volver (scroll restoration). Cada vista (tienda, categoría, producto) guarda su posición
+     en SU entrada del historial; al volver con «Volver» o el botón atrás del celular se restaura exacta. Una vista nueva
+     (tocar un producto o un enlace) empieza arriba, como siempre. No cambia la búsqueda ni la categoría elegidas. */
+  let tPos = null, hashPos = "";
+  function guardarPos() {
+    clearTimeout(tPos); tPos = null;
+    if (pag.hidden || !ruta || location.hash !== hashPos) return;   // nunca se escribe en la entrada de otra vista
+    try {
+      const s = history.state && typeof history.state === "object" ? history.state : {}, y = Math.round(pag.scrollTop);
+      if (s.asY === y && s.asH === hashPos) return;
+      history.replaceState(Object.assign({}, s, { asY: y, asH: hashPos }), "");
+    } catch (e) { /* sin historial: se vuelve arriba, como antes */ }
+  }
+  function posGuardada() {
+    try { const s = history.state; return s && s.asH === location.hash && typeof s.asY === "number" && s.asY > 0 ? s.asY : null; }
+    catch (e) { return null; }
+  }
+  function restaurarPos(y) {
+    let tocado = false;
+    const marcar = () => { tocado = true; };
+    pag.addEventListener("touchstart", marcar, { once: true, passive: true });
+    pag.addEventListener("wheel", marcar, { once: true, passive: true });
+    const poner = () => { if (!tocado && !pag.hidden) pag.scrollTop = y; };
+    poner(); requestAnimationFrame(poner); setTimeout(poner, 120); setTimeout(poner, 400);   // por si el celular reacomoda la página
+  }
+  pag.addEventListener("scroll", e => {
+    if (e.target !== pag || !ruta) return;
+    if (!tPos) hashPos = location.hash;
+    clearTimeout(tPos); tPos = setTimeout(guardarPos, 150);
+  });
+  pag.addEventListener("pointerdown", () => { if (tPos) guardarPos(); }, true);   // tocar algo justo después de desplazarse
+  pag.addEventListener("keydown", () => { if (tPos) guardarPos(); }, true);
+
   function mostrar(r, nuevo) {
     const v = r.slug ? D.porSlug.get(r.slug) : null;
     if (r.vender && D.formulario) dibujarFormulario();
@@ -650,9 +683,11 @@
       else pag.innerHTML = barra(v.nombre, v) + `<div class="f-wrap"><div class="state"><b>Este producto ya no está publicado.</b><br><a class="cta" href="#tiendas/${esc(v.slug)}">Ver ${esc(v.nombre)}</a></div></div>`;
     } else dibujarTienda(v);
     if (nuevo) {
+      const y = posGuardada();
       pag.scrollTop = 0;
       const h = pag.querySelector("#asTitulo") || pag.querySelector(".f-back");
       if (h) h.focus({ preventScroll: true });
+      if (y !== null) restaurarPos(y);
     }
   }
   function enrutar() {
@@ -687,7 +722,7 @@
     else if (r.slug) location.hash = "#tiendas";
     else { history.replaceState(null, "", location.pathname + location.search + "#asociadas"); ocultar(); }
   }
-  window.addEventListener("hashchange", () => { if (leerRuta()) desdeTienda = true; enrutar(); });
+  window.addEventListener("hashchange", () => { clearTimeout(tPos); tPos = null; if (leerRuta()) desdeTienda = true; enrutar(); });
 
   pag.addEventListener("input", e => {
     if (e.target.id !== "asBuscar" || !ruta) return;
